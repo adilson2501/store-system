@@ -52,12 +52,12 @@ npx supabase db push
 
 Alternatively, paste the contents of files in `supabase/migrations/` into the Dashboard SQL Editor in filename order (still reproducible from git).
 
-Migration `20260922180000_profiles_and_rls.sql` creates:
+| Migration | Creates |
+|-----------|---------|
+| `20260922180000_profiles_and_rls.sql` | `profiles`, `app_role`, signup trigger, role protection, profiles RLS |
+| `20260922190000_products_categories_inventory.sql` | `categories`, `products`, `inventory_movements`, `product_stock` view, `create_product_with_initial_stock` RPC, catalog/inventory RLS |
 
-- `public.profiles` (role enum: `ADMIN` | `SELLER`, default `SELLER`)
-- Trigger: profile row on signup (always default `SELLER`)
-- Trigger: only admins may change `profiles.role`
-- RLS: users read/update own profile; admins read all; no client insert/delete
+After applying migrations, the admin can manage categories and products under **Products** on the home screen.
 
 ## Bootstrap the first ADMIN
 
@@ -90,3 +90,7 @@ After bootstrap, RLS and the role-change trigger protect ADMIN/SELLER as normal.
 | `/login` | Public (redirects away if signed in) |
 | `/` | Any authenticated user |
 | `/admin` | ADMIN only (server check + RLS) |
+| `/admin/products` | ADMIN only |
+| `/admin/products/new` | ADMIN only |
+| `/admin/products/[id]` | ADMIN only (edit, activate/deactivate) |
+| `/admin/categories` | ADMIN only |
