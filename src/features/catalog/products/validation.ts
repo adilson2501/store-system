@@ -52,6 +52,44 @@ export function validateQuantity(
   return { ok: true, value };
 }
 
+export function validateNewStock(
+  raw: unknown,
+  unitType: UnitType,
+): { ok: true; value: QuantityString } | { ok: false; error: string } {
+  const value = String(raw ?? "").trim();
+
+  if (!value) {
+    return { ok: false, error: "El nuevo stock es obligatorio." };
+  }
+  if (!QUANTITY_RE.test(value)) {
+    return {
+      ok: false,
+      error: "El nuevo stock debe ser un número no negativo con máximo 3 decimales.",
+    };
+  }
+
+  if (unitType === "UNIT" && !/^\d+$/.test(value)) {
+    return {
+      ok: false,
+      error: "Los productos UNIT requieren un stock entero.",
+    };
+  }
+
+  return { ok: true, value };
+}
+
+export function validateAdjustmentReason(
+  raw: unknown,
+): { ok: true; value: string } | { ok: false; error: string } {
+  const value = String(raw ?? "").trim();
+
+  if (!value) {
+    return { ok: false, error: "El motivo es obligatorio." };
+  }
+
+  return { ok: true, value };
+}
+
 export function normalizeOptionalBarcode(raw: unknown): string | null {
   const value = String(raw ?? "").trim();
   return value.length > 0 ? value : null;

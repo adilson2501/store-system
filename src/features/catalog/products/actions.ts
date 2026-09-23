@@ -7,7 +7,9 @@ import { createClient } from "@/lib/supabase/server";
 import type { UnitType } from "@/features/catalog/products/types";
 import {
   normalizeOptionalBarcode,
+  validateAdjustmentReason,
   validateMoney,
+  validateNewStock,
   validateQuantity,
 } from "@/features/catalog/products/validation";
 
@@ -221,4 +223,113 @@ export async function updateProduct(
   revalidatePath("/admin/products");
   revalidatePath(`/admin/products/${productId}`);
   return { values };
+}
+
+export type StockAdjustFormState = {
+  error?: string;
+  success?: string;
+  stock?: string;
+  values?: {
+    target_stock: string;
+    reason: string;
+  };
+};
+
+function toStockAdjustErrorMessage(raw: string): string {
+  const message = raw.replace(/^Error:\s*/i, "").trim();
+
+  if (message === "Authentication required") {
+    return "Autenticación requerida.";
+  }
+  if (message.includes("Only administrators can adjust stock")) {
+    return "Solo los administradores pueden ajustar el stock.";
+  }
+  if (message.includes("Adjustment reason is required")) {
+    return "El motivo es obligatorio.";
+  }
+  if (message.includes("Product not found")) {
+    return "Producto no encontrado.";
+  }
+  if (message.includes("Target stock must be zero or greater")) {
+    return "El nuevo stock no puede ser negativo.";
+  }
+  if (message.includes("Target stock must have at most 3 decimals")) {
+    return "El nuevo stock admite máximo 3 decimales.";
+  }
+  if (message.includes("UNIT products require a whole-number target stock")) {
+    return "Los productos UNIT requieren un stock entero.";
+  }
+  if (message.includes("UNIT products require whole-number inventory quantities")) {
+    return "Los productos UNIT requieren cantidades enteras.";
+  }
+
+  return message;
+}
+
+export async function adjustProductStock(
+  productId: string,
+  _prevState: StockAdjustFormState,
+  formData: FormData,
+): Promise<StockAdjustFormState> {
+  await requireAdmin();
+
+  if (!productId) {
+    return { error: "El producto es obligatorio." };
+  }
+
+  const unitTypeRaw = String(formData.get("unit_type") ?? "");
+  const unitType: UnitType =
+    unitTypeRaw === "WEIGHT" ? "WEIGHT" : "UNIT";
+  const targetStockRaw = String(formData.get("target_stock") ?? "").trim();
+  const reasonRaw = String(formData.get("reason") ?? "");
+
+  const values = {
+    target_stock: targetStockRaw,
+    reason: reasonRaw,
+  };
+
+  const stock = validateNewStock(targetStockRaw, unitType);
+  if (!stock.ok) {
+    return { error: stock.error, values };
+  }
+
+  const reason = validateAdjustmentReason(reasonRaw);
+  if (!reason.ok) {
+    return { error: reason.error, values };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("adjust_product_stock", {
+    p_product_id: productId,
+    p_target_stock: stock.value,
+    p_reason: reason.value,
+  });
+
+  if (error) {
+    return { error: toStockAdjustErrorMessage(error.message), values };
+  }
+
+  const result = (data ?? {}) as {
+    new_stock?: string | number;
+    difference?: string | number;
+    movement_id?: string | null;
+  };
+  const newStock =
+    result.new_stock === undefined || result.new_stock === null
+      ? stock.value
+      : String(result.new_stock);
+  const difference = Number(result.difference ?? 0);
+  const success =
+    difference === 0
+      ? "Sin cambios."
+      : `Ajuste aplicado (${difference > 0 ? "+" : ""}${String(result.difference)}).`;
+
+  revalidatePath("/admin/products");
+  revalidatePath(`/admin/products/${productId}`);
+
+  return {
+    success,
+    stock: newStock,
+    values: { target_stock: "", reason: "" },
+  };
 }

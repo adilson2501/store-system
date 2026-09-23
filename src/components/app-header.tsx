@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { logout } from "@/features/auth/actions";
 import type { SessionUser } from "@/features/auth/session";
 
@@ -5,9 +6,12 @@ export function AppHeader({ user }: { user: SessionUser }) {
   return (
     <header className="border-b border-zinc-200 bg-white">
       <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-4">
-        <span className="text-sm font-semibold tracking-tight">
+        <Link
+          href="/"
+          className="text-sm font-semibold tracking-tight hover:text-zinc-900"
+        >
           Sistema de Tienda
-        </span>
+        </Link>
 
         <div className="flex items-center gap-3 text-sm">
           <span className="text-zinc-500">{user.email}</span>

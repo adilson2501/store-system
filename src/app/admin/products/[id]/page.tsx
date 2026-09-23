@@ -10,6 +10,7 @@ import {
   formatQuantity,
 } from "@/features/catalog/products/validation";
 import { ProductForm } from "@/app/admin/products/product-form";
+import { StockAdjustPanel } from "@/app/admin/products/[id]/stock-adjust-panel";
 
 export default async function EditProductPage({
   params,
@@ -30,9 +31,12 @@ export default async function EditProductPage({
     <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex h-14 w-full max-w-3xl items-center justify-between px-4">
-          <span className="text-sm font-semibold tracking-tight">
+          <Link
+            href="/"
+            className="text-sm font-semibold tracking-tight hover:text-zinc-900"
+          >
             Sistema de Tienda
-          </span>
+          </Link>
           <Link
             href="/admin/products"
             className="text-sm font-medium text-zinc-600 hover:text-zinc-900"
@@ -56,8 +60,8 @@ export default async function EditProductPage({
             {product.is_active ? "" : " · Inactivo"}
           </p>
           <p className="mt-1 text-xs text-zinc-400">
-            Los cambios de stock (compras, ajustes) vendrán después. El stock
-            inicial se configura solo al crear el producto en este hito.
+            El stock se deriva de los movimientos de inventario. Usa el panel
+            Ajustar stock para corregirlo con un motivo.
           </p>
         </div>
 
@@ -76,6 +80,14 @@ export default async function EditProductPage({
               initial_stock: "",
               is_active: product.is_active,
             }}
+          />
+        </div>
+
+        <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6">
+          <StockAdjustPanel
+            productId={product.id}
+            unitType={product.unit_type}
+            currentStock={product.stock_quantity ?? "0"}
           />
         </div>
       </main>

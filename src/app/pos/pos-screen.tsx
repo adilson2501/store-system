@@ -6,7 +6,6 @@ import { confirmSale } from "@/features/pos/actions";
 import { addProduct, removeProduct, updateQuantity } from "@/features/pos/cart";
 import { findByBarcode, searchProducts } from "@/features/pos/catalog";
 import {
-  applyKeypadKey,
   decrementIntegerQuantity,
   formatCents,
   formatMoney,
@@ -192,8 +191,8 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
     window.setTimeout(() => productInputRef.current?.focus(), 0);
   }
 
-  function handleReceivedKey(key: string) {
-    setAmountReceived((current) => applyKeypadKey(current, key, 2));
+  function handleReceivedKey(next: string) {
+    setAmountReceived(next);
   }
 
   function submitSale() {
