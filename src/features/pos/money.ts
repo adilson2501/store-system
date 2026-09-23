@@ -54,6 +54,19 @@ export function applyKeypadKey(
   return value + key;
 }
 
+export function sanitizeDecimalInput(value: string, maxDecimals: number): string {
+  const cleaned = value.replace(/,/g, ".").replace(/[^\d.]/g, "");
+  const dotIndex = cleaned.indexOf(".");
+  if (dotIndex === -1) return cleaned;
+
+  const whole = cleaned.slice(0, dotIndex);
+  const fraction = cleaned
+    .slice(dotIndex + 1)
+    .replace(/\./g, "")
+    .slice(0, maxDecimals);
+  return `${whole === "" ? "0" : whole}.${fraction}`;
+}
+
 export function incrementIntegerQuantity(value: string): string {
   if (!/^\d+$/.test(value)) return "1";
   return (BigInt(value) + BigInt(1)).toString();

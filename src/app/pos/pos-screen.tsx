@@ -13,9 +13,9 @@ import {
   lineTotalCents,
   parseCents,
   parseThousandths,
+  sanitizeDecimalInput,
 } from "@/features/pos/money";
 import type { CartLine, PaymentMethod, PosProduct } from "@/features/pos/types";
-import { NumericKeypad } from "@/app/pos/numeric-keypad";
 
 function newClientKey() {
   return crypto.randomUUID();
@@ -65,11 +65,6 @@ function toPosErrorMessage(raw: string): string {
   return message;
 }
 
-type ActiveNumeric =
-  | { kind: "weight"; lineId: string }
-  | { kind: "received" }
-  | null;
-
 export function PosScreen({ sellerName }: { sellerName: string }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState("");
@@ -78,7 +73,6 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
   const [amountReceived, setAmountReceived] = useState("");
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState<string | null>(null);
-  const [activeNumeric, setActiveNumeric] = useState<ActiveNumeric>(null);
   const [isPending, startTransition] = useTransition();
   const productInputRef = useRef<HTMLInputElement>(null);
 
@@ -96,11 +90,6 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
         (line.unit_type === "WEIGHT" || quantity % BigInt(1000) === BigInt(0));
     }) &&
     (paymentMethod === "YAPE" || (receivedCents !== null && receivedCents >= totalCents));
-
-  const activeWeightLine =
-    activeNumeric?.kind === "weight"
-      ? cart.find((line) => line.id === activeNumeric.lineId)
-      : undefined;
 
   useEffect(() => {
     productInputRef.current?.focus();
@@ -132,11 +121,6 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
     window.setTimeout(() => productInputRef.current?.focus(), 0);
   }
 
-  function closeKeypadAndScan() {
-    setActiveNumeric(null);
-    keepScannerReady();
-  }
-
   function putProductInCart(product: PosProduct) {
     if (!product.is_active) {
       setMessage("Producto inactivo.");
@@ -148,14 +132,6 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
     setQuery("");
     setResults([]);
     setMessage("");
-
-    if (product.unit_type === "WEIGHT") {
-      setActiveNumeric({ kind: "weight", lineId: product.id });
-      window.setTimeout(() => productInputRef.current?.focus(), 0);
-      return;
-    }
-
-    setActiveNumeric(null);
     keepScannerReady();
   }
 
@@ -179,20 +155,6 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
       setMessage("No se pudo leer el código.");
       keepScannerReady();
     }
-  }
-
-  function activateWeight(lineId: string) {
-    setActiveNumeric({ kind: "weight", lineId });
-    window.setTimeout(() => productInputRef.current?.focus(), 0);
-  }
-
-  function activateReceived() {
-    setActiveNumeric({ kind: "received" });
-    window.setTimeout(() => productInputRef.current?.focus(), 0);
-  }
-
-  function handleReceivedKey(next: string) {
-    setAmountReceived(next);
   }
 
   function submitSale() {
@@ -219,7 +181,6 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
       setCart([]);
       setAmountReceived("");
       setPaymentMethod("CASH");
-      setActiveNumeric(null);
       setMessage("");
       window.setTimeout(() => {
         setSuccess(null);
@@ -303,7 +264,6 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
               <div className="divide-y divide-slate-100">
                 {cart.map((line) => {
                   const lineTotal = lineTotalCents(line.selling_price, line.quantity);
-                  const weightActive = activeNumeric?.kind === "weight" && activeNumeric.lineId === line.id;
                   return (
                     <div key={line.id} className="px-4 py-4">
                       <div className="flex items-center gap-3">
@@ -333,21 +293,22 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
                               {line.quantity}
                             </span>
                           ) : (
-                            <button
-                              type="button"
-                              onMouseDown={(event) => event.preventDefault()}
-                              onClick={() => activateWeight(line.id)}
-                              className={`flex h-12 min-w-28 items-center justify-center gap-1 rounded-xl border-2 px-3 text-lg font-bold tabular-nums ${
-                                weightActive
-                                  ? "border-blue-500 bg-blue-50 text-blue-900 ring-4 ring-blue-100"
-                                  : "border-slate-300 bg-white hover:border-blue-400"
-                              }`}
-                              aria-label={`Peso de ${line.name}`}
-                              aria-pressed={weightActive}
-                            >
-                              <span>{line.quantity || "0"}</span>
+                            <label className="flex h-12 items-center gap-1 rounded-xl border-2 border-slate-300 bg-white px-2 focus-within:border-blue-500 focus-within:bg-blue-50 focus-within:ring-4 focus-within:ring-blue-100">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={line.quantity}
+                                onChange={(event) => {
+                                  const next = sanitizeDecimalInput(event.target.value, 3);
+                                  setCart((current) => updateQuantity(current, line.id, next));
+                                }}
+                                autoComplete="off"
+                                placeholder="0.000"
+                                aria-label={`Peso de ${line.name}`}
+                                className="w-20 bg-transparent text-right text-lg font-bold tabular-nums text-slate-950 outline-none placeholder:text-slate-400"
+                              />
                               <span className="text-sm font-semibold text-slate-600">kg</span>
-                            </button>
+                            </label>
                           )}
 
                           {line.unit_type === "UNIT" ? (
@@ -372,36 +333,12 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={() => {
                             setCart((current) => removeProduct(current, line.id));
-                            if (activeNumeric?.kind === "weight" && activeNumeric.lineId === line.id) {
-                              setActiveNumeric(null);
-                            }
                           }}
                           className="rounded-lg px-2 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
                         >
                           Quitar
                         </button>
                       </div>
-
-                      {weightActive && activeWeightLine ? (
-                        <div className="mt-3">
-                          <NumericKeypad
-                            value={activeWeightLine.quantity}
-                            onChange={(next) =>
-                              setCart((current) =>
-                                current.map((item) =>
-                                  item.id === activeWeightLine.id
-                                    ? { ...item, quantity: next }
-                                    : item,
-                                ),
-                              )
-                            }
-                            maxDecimals={3}
-                            label={`Peso · ${activeWeightLine.name}`}
-                            displaySuffix="kg"
-                            onDone={closeKeypadAndScan}
-                          />
-                        </div>
-                      ) : null}
                     </div>
                   );
                 })}
@@ -424,9 +361,6 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
                   setPaymentMethod(method);
                   if (method === "YAPE") {
                     setAmountReceived("");
-                    setActiveNumeric((current) =>
-                      current?.kind === "received" ? null : current,
-                    );
                   }
                 }}
                 className={`min-h-14 rounded-xl text-lg font-bold ${paymentMethod === method ? "bg-blue-600 text-white shadow-sm" : "border border-slate-300 text-slate-700 hover:bg-slate-50"}`}
@@ -438,33 +372,26 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
 
           {paymentMethod === "CASH" ? (
             <div className="mt-5 space-y-3">
-              <p className="text-sm font-semibold text-slate-700">Monto recibido</p>
-              <button
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={activateReceived}
-                className={`flex h-14 w-full items-center justify-between rounded-xl border-2 px-4 text-2xl font-bold tabular-nums ${
-                  activeNumeric?.kind === "received"
-                    ? "border-blue-500 bg-blue-50 text-blue-950 ring-4 ring-blue-100"
-                    : "border-slate-300 bg-white text-slate-900 hover:border-blue-400"
-                }`}
-                aria-label="Monto recibido"
-                aria-pressed={activeNumeric?.kind === "received"}
-              >
-                <span>{amountReceived || "0.00"}</span>
-                <span className="text-sm font-semibold text-slate-500">S/.</span>
-              </button>
-
-              {activeNumeric?.kind === "received" ? (
-                <NumericKeypad
+              <label htmlFor="amount-received" className="block text-sm font-semibold text-slate-700">
+                Monto recibido
+              </label>
+              <div className="relative">
+                <input
+                  id="amount-received"
+                  type="text"
+                  inputMode="decimal"
                   value={amountReceived}
-                  onChange={handleReceivedKey}
-                  maxDecimals={2}
-                  label="Monto recibido"
-                  displaySuffix="S/."
-                  onDone={closeKeypadAndScan}
+                  onChange={(event) =>
+                    setAmountReceived(sanitizeDecimalInput(event.target.value, 2))
+                  }
+                  autoComplete="off"
+                  placeholder="0.00"
+                  className="h-14 w-full rounded-xl border-2 border-slate-300 bg-white px-4 pr-14 text-2xl font-bold tabular-nums text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 />
-              ) : null}
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500">
+                  S/.
+                </span>
+              </div>
 
               <div className="flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3 text-emerald-900">
                 <span className="font-semibold">Vuelto</span>
