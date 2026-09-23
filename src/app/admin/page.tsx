@@ -16,19 +16,19 @@ export default async function AdminPage() {
       <AppHeader user={user} />
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-        <h1 className="text-lg font-semibold">Admin</h1>
+        <h1 className="text-lg font-semibold">Administración</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Profiles visible under RLS (ADMIN sees all).
+          Perfiles visibles bajo RLS (ADMIN ve todos).
         </p>
 
         <div className="mt-6 overflow-x-auto rounded-lg border border-zinc-200 bg-white">
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-500">
               <tr>
-                <th className="px-4 py-3 font-medium">Email / ID</th>
-                <th className="px-4 py-3 font-medium">Role</th>
-                <th className="px-4 py-3 font-medium">Display name</th>
-                <th className="px-4 py-3 font-medium">Created</th>
+                <th className="px-4 py-3 font-medium">Correo / ID</th>
+                <th className="px-4 py-3 font-medium">Rol</th>
+                <th className="px-4 py-3 font-medium">Nombre</th>
+                <th className="px-4 py-3 font-medium">Creado</th>
               </tr>
             </thead>
             <tbody>
@@ -41,7 +41,7 @@ export default async function AdminPage() {
               ) : (profiles ?? []).length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-4 text-zinc-500">
-                    No profiles found.
+                    No se encontraron perfiles.
                   </td>
                 </tr>
               ) : (

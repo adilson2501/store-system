@@ -18,16 +18,16 @@ export default async function CategoriesPage() {
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-lg font-semibold">Categories</h1>
+            <h1 className="text-lg font-semibold">Categorías</h1>
             <p className="mt-1 text-sm text-zinc-500">
-              Optional labels for organizing products.
+              Etiquetas opcionales para organizar productos.
             </p>
           </div>
           <Link
             href="/admin/products"
             className="text-sm font-medium text-zinc-600 hover:text-zinc-900"
           >
-            Back to products
+            Volver a productos
           </Link>
         </div>
 
@@ -36,7 +36,7 @@ export default async function CategoriesPage() {
         <div className="mt-6 overflow-hidden rounded-lg border border-zinc-200 bg-white">
           {categories.length === 0 ? (
             <p className="px-4 py-6 text-sm text-zinc-500">
-              No categories yet.
+              Aún no hay categorías.
             </p>
           ) : (
             categories.map((category) => (

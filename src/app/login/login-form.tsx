@@ -15,7 +15,7 @@ export function LoginForm() {
           htmlFor="email"
           className="block text-sm font-medium text-zinc-700"
         >
-          Email
+          Correo electrónico
         </label>
         <input
           id="email"
@@ -24,7 +24,7 @@ export function LoginForm() {
           autoComplete="email"
           required
           className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
-          placeholder="you@example.com"
+          placeholder="tu@correo.com"
         />
       </div>
 
@@ -33,7 +33,7 @@ export function LoginForm() {
           htmlFor="password"
           className="block text-sm font-medium text-zinc-700"
         >
-          Password
+          Contraseña
         </label>
         <input
           id="password"
@@ -57,7 +57,7 @@ export function LoginForm() {
         disabled={pending}
         className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
       >
-        {pending ? "Signing in…" : "Sign in"}
+        {pending ? "Iniciando sesión…" : "Iniciar sesión"}
       </button>
     </form>
   );

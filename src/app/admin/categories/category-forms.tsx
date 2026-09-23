@@ -20,14 +20,14 @@ export function CategoryCreateForm() {
           htmlFor="category-name"
           className="block text-sm font-medium text-zinc-700"
         >
-          New category
+          Nueva categoría
         </label>
         <input
           id="category-name"
           name="name"
           type="text"
           required
-          placeholder="e.g. Beverages"
+          placeholder="Ej.: Bebidas"
           className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
         />
         {state.error ? (
@@ -39,7 +39,7 @@ export function CategoryCreateForm() {
         disabled={pending}
         className="h-10 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
       >
-        {pending ? "Adding…" : "Add category"}
+        {pending ? "Agregando…" : "Agregar categoría"}
       </button>
     </form>
   );
@@ -59,7 +59,7 @@ export function CategoryRow({ category }: { category: Category }) {
           htmlFor={`category-${category.id}`}
           className="block text-xs font-medium text-zinc-500"
         >
-          Name
+          Nombre
         </label>
         <input
           id={`category-${category.id}`}
@@ -80,14 +80,14 @@ export function CategoryRow({ category }: { category: Category }) {
           defaultChecked={category.is_active}
           className="h-4 w-4 rounded border-zinc-300"
         />
-        Active
+        Activo
       </label>
       <button
         type="submit"
         disabled={pending}
         className="h-10 rounded-md border border-zinc-200 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
       >
-        {pending ? "Saving…" : "Save"}
+        {pending ? "Guardando…" : "Guardar"}
       </button>
     </form>
   );

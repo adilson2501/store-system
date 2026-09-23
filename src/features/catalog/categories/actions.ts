@@ -24,7 +24,7 @@ export async function createCategory(
   const name = normalizeName(formData.get("name"));
 
   if (!name) {
-    return { error: "Category name is required." };
+    return { error: "El nombre de la categoría es obligatorio." };
   }
 
   const supabase = await createClient();
@@ -34,7 +34,7 @@ export async function createCategory(
 
   if (error) {
     if (error.code === "23505") {
-      return { error: "A category with this name already exists." };
+      return { error: "Ya existe una categoría con ese nombre." };
     }
     return { error: error.message };
   }
@@ -54,10 +54,10 @@ export async function updateCategory(
   const isActive = formData.get("is_active") === "on";
 
   if (!id) {
-    return { error: "Category is required." };
+    return { error: "La categoría es obligatoria." };
   }
   if (!name) {
-    return { error: "Category name is required." };
+    return { error: "El nombre de la categoría es obligatorio." };
   }
 
   const supabase = await createClient();
@@ -68,7 +68,7 @@ export async function updateCategory(
 
   if (error) {
     if (error.code === "23505") {
-      return { error: "A category with this name already exists." };
+      return { error: "Ya existe una categoría con ese nombre." };
     }
     return { error: error.message };
   }

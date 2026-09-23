@@ -13,12 +13,12 @@ export function validateMoney(
   const value = String(raw ?? "").trim();
 
   if (!value) {
-    return { ok: false, error: `${label} is required.` };
+    return { ok: false, error: `${label} es obligatorio.` };
   }
   if (!MONEY_RE.test(value)) {
     return {
       ok: false,
-      error: `${label} must be a non-negative amount with at most 2 decimals.`,
+      error: `${label} debe ser un monto no negativo con máximo 2 decimales.`,
     };
   }
 
@@ -32,20 +32,20 @@ export function validateQuantity(
   const value = String(raw ?? "").trim();
 
   if (!value) {
-    return { ok: false, error: "Initial stock is required (use 0 if none)." };
+    return { ok: false, error: "El stock inicial es obligatorio (usa 0 si no hay)." };
   }
   if (!QUANTITY_RE.test(value)) {
     return {
       ok: false,
       error:
-        "Initial stock must be a non-negative number with at most 3 decimals.",
+        "El stock inicial debe ser un número no negativo con máximo 3 decimales.",
     };
   }
 
   if (unitType === "UNIT" && !/^\d+$/.test(value)) {
     return {
       ok: false,
-      error: "UNIT products require a whole-number initial stock.",
+      error: "Los productos UNIT requieren un stock inicial entero.",
     };
   }
 

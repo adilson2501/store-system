@@ -6,7 +6,7 @@ export function AppHeader({ user }: { user: SessionUser }) {
     <header className="border-b border-zinc-200 bg-white">
       <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-4">
         <span className="text-sm font-semibold tracking-tight">
-          Store System
+          Sistema de Tienda
         </span>
 
         <div className="flex items-center gap-3 text-sm">
@@ -19,7 +19,7 @@ export function AppHeader({ user }: { user: SessionUser }) {
               type="submit"
               className="rounded-md border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
             >
-              Log out
+              Cerrar sesión
             </button>
           </form>
         </div>

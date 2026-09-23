@@ -14,9 +14,9 @@ export default async function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <h1 className="text-lg font-semibold text-zinc-900">
-            Store System
+            Sistema de Tienda
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">Sign in to continue</p>
+          <p className="mt-1 text-sm text-zinc-500">Inicia sesión para continuar</p>
         </div>
 
         <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">

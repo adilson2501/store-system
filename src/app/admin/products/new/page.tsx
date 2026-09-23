@@ -12,21 +12,21 @@ export default async function NewProductPage() {
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex h-14 w-full max-w-3xl items-center justify-between px-4">
           <span className="text-sm font-semibold tracking-tight">
-            Store System
+            Sistema de Tienda
           </span>
           <Link
             href="/admin/products"
             className="text-sm font-medium text-zinc-600 hover:text-zinc-900"
           >
-            Back to products
+            Volver a productos
           </Link>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
-        <h1 className="text-lg font-semibold">New product</h1>
+        <h1 className="text-lg font-semibold">Nuevo producto</h1>
         <p className="mt-1 mb-6 text-sm text-zinc-500">
-          Register a real store item. Initial stock is optional.
+          Registra un producto real de la tienda. El stock inicial es opcional.
         </p>
 
         <div className="rounded-lg border border-zinc-200 bg-white p-6">
@@ -36,7 +36,7 @@ export default async function NewProductPage() {
 
       <footer className="border-t border-zinc-200 bg-white">
         <div className="mx-auto w-full max-w-3xl px-4 py-3 text-xs text-zinc-400">
-          Signed in as {user.email}
+          Sesión iniciada como {user.email}
         </div>
       </footer>
     </div>

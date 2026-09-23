@@ -23,9 +23,9 @@ export default async function ProductsPage({
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-lg font-semibold">Products</h1>
+            <h1 className="text-lg font-semibold">Productos</h1>
             <p className="mt-1 text-sm text-zinc-500">
-              {products.length} product{products.length === 1 ? "" : "s"}
+              {products.length} {products.length === 1 ? "producto" : "productos"}
             </p>
           </div>
 
@@ -34,13 +34,13 @@ export default async function ProductsPage({
               href="/admin/categories"
               className="text-sm font-medium text-zinc-600 hover:text-zinc-900"
             >
-              Categories
+              Categorías
             </Link>
             <Link
               href="/admin/products/new"
               className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
             >
-              New product
+              Nuevo producto
             </Link>
           </div>
         </div>
@@ -50,14 +50,14 @@ export default async function ProductsPage({
             type="search"
             name="q"
             defaultValue={q}
-            placeholder="Search name or barcode"
+            placeholder="Buscar por nombre o código de barras"
             className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
           />
           <button
             type="submit"
             className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
           >
-            Search
+            Buscar
           </button>
         </form>
 
@@ -65,14 +65,14 @@ export default async function ProductsPage({
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-500">
               <tr>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Barcode</th>
-                <th className="px-4 py-3 font-medium">Category</th>
-                <th className="px-4 py-3 font-medium">Unit</th>
-                <th className="px-4 py-3 font-medium">Cost</th>
-                <th className="px-4 py-3 font-medium">Price</th>
+                <th className="px-4 py-3 font-medium">Nombre</th>
+                <th className="px-4 py-3 font-medium">Código de barras</th>
+                <th className="px-4 py-3 font-medium">Categoría</th>
+                <th className="px-4 py-3 font-medium">Unidad</th>
+                <th className="px-4 py-3 font-medium">Costo</th>
+                <th className="px-4 py-3 font-medium">Precio</th>
                 <th className="px-4 py-3 font-medium">Stock</th>
-                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Estado</th>
               </tr>
             </thead>
             <tbody>
@@ -80,8 +80,8 @@ export default async function ProductsPage({
                 <tr>
                   <td colSpan={8} className="px-4 py-6 text-zinc-500">
                     {q
-                      ? "No products match your search."
-                      : "No products yet. Create your first real product."}
+                      ? "Ningún producto coincide con tu búsqueda."
+                      : "Aún no hay productos. Crea tu primer producto real."}
                   </td>
                 </tr>
               ) : (
@@ -102,7 +102,7 @@ export default async function ProductsPage({
                       {product.category_name ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-zinc-700">
-                      {product.unit_type === "WEIGHT" ? "kg" : "unit"}
+                      {product.unit_type === "WEIGHT" ? "kg" : "unidad"}
                     </td>
                     <td className="px-4 py-3 text-zinc-700">
                       {formatMoneyPen(product.purchase_cost)}
@@ -121,7 +121,7 @@ export default async function ProductsPage({
                             : "rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600"
                         }
                       >
-                        {product.is_active ? "Active" : "Inactive"}
+                        {product.is_active ? "Activo" : "Inactivo"}
                       </span>
                     </td>
                   </tr>

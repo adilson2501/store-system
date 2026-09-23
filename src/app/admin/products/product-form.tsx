@@ -64,7 +64,7 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
 
       <div className="space-y-1">
         <label htmlFor="name" className="block text-sm font-medium text-zinc-700">
-          Name
+          Nombre
         </label>
         <input
           id="name"
@@ -72,7 +72,7 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
           type="text"
           required
           defaultValue={values.name}
-          placeholder="e.g. Coca-Cola 500 ml"
+          placeholder="Ej.: Coca-Cola 500 ml"
           className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
         />
         {errors.name ? (
@@ -82,7 +82,7 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
 
       <div className="space-y-1">
         <label htmlFor="barcode" className="block text-sm font-medium text-zinc-700">
-          Barcode <span className="font-normal text-zinc-400">(optional)</span>
+          Código de barras <span className="font-normal text-zinc-400">(opcional)</span>
         </label>
         <input
           id="barcode"
@@ -90,7 +90,7 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
           type="text"
           autoComplete="off"
           defaultValue={values.barcode}
-          placeholder="Scan or type"
+          placeholder="Escanea o escribe"
           className="w-full rounded-md border border-zinc-300 px-3 py-2 font-mono text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
         />
         {errors.barcode ? (
@@ -103,7 +103,7 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
           htmlFor="category_id"
           className="block text-sm font-medium text-zinc-700"
         >
-          Category <span className="font-normal text-zinc-400">(optional)</span>
+          Categoría <span className="font-normal text-zinc-400">(opcional)</span>
         </label>
         <select
           id="category_id"
@@ -111,7 +111,7 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
           defaultValue={values.category_id}
           className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
         >
-          <option value="">No category</option>
+          <option value="">Sin categoría</option>
           {categories.map((category) => (
             <option key={category.id} value={category.id}>
               {category.name}
@@ -124,7 +124,7 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
       </div>
 
       <fieldset className="space-y-1">
-        <legend className="text-sm font-medium text-zinc-700">Unit type</legend>
+        <legend className="text-sm font-medium text-zinc-700">Tipo de unidad</legend>
         <div className="flex gap-4 pt-1">
           <label className="flex items-center gap-2 text-sm text-zinc-800">
             <input
@@ -135,7 +135,7 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
               onChange={() => setUnitType("UNIT")}
               className="h-4 w-4 border-zinc-300"
             />
-            UNIT (each)
+            UNIT (por unidad)
           </label>
           <label className="flex items-center gap-2 text-sm text-zinc-800">
             <input
@@ -146,7 +146,7 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
               onChange={() => setUnitType("WEIGHT")}
               className="h-4 w-4 border-zinc-300"
             />
-            WEIGHT (kg)
+            WEIGHT (kilo)
           </label>
         </div>
         {errors.unit_type ? (
@@ -160,7 +160,7 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
             htmlFor="purchase_cost"
             className="block text-sm font-medium text-zinc-700"
           >
-            Purchase cost (S/.)
+            Costo de compra (S/.)
           </label>
           <input
             id="purchase_cost"
@@ -182,7 +182,7 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
             htmlFor="selling_price"
             className="block text-sm font-medium text-zinc-700"
           >
-            Selling price (S/.)
+            Precio de venta (S/.)
           </label>
           <input
             id="selling_price"
@@ -206,9 +206,9 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
             htmlFor="initial_stock"
             className="block text-sm font-medium text-zinc-700"
           >
-            Initial stock{" "}
+            Stock inicial{" "}
             <span className="font-normal text-zinc-400">
-              ({unitType === "WEIGHT" ? "kg" : "units"})
+              ({unitType === "WEIGHT" ? "kg" : "unidades"})
             </span>
           </label>
           <input
@@ -222,7 +222,7 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
             className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
           />
           <p className="text-xs text-zinc-500">
-            Recorded as an inventory ENTRY movement. Use 0 if none yet.
+            Se registra como un movimiento de entrada de inventario. Usa 0 si aún no hay stock.
           </p>
           {errors.initial_stock ? (
             <p className="text-sm text-red-600">{errors.initial_stock}</p>
@@ -238,7 +238,7 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
             defaultChecked={values.is_active}
             className="h-4 w-4 rounded border-zinc-300"
           />
-          Active
+          Activo
         </label>
       ) : null}
 
@@ -249,16 +249,16 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
           className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
         >
           {pending
-            ? "Saving…"
+            ? "Guardando…"
             : mode === "create"
-              ? "Create product"
-              : "Save changes"}
+              ? "Crear producto"
+              : "Guardar cambios"}
         </button>
         <Link
           href="/admin/products"
           className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
         >
-          Cancel
+          Cancelar
         </Link>
       </div>
     </form>

@@ -70,18 +70,18 @@ export async function createProduct(
   const fieldErrors: NonNullable<ProductFormState["fieldErrors"]> = {};
 
   if (!name) {
-    fieldErrors.name = "Name is required.";
+    fieldErrors.name = "El nombre es obligatorio.";
   }
   if (!unitType) {
-    fieldErrors.unit_type = "Select UNIT or WEIGHT.";
+    fieldErrors.unit_type = "Selecciona UNIT o WEIGHT.";
   }
 
-  const cost = validateMoney(purchaseCostRaw, "Purchase cost");
+  const cost = validateMoney(purchaseCostRaw, "El costo de compra");
   if (!cost.ok) {
     fieldErrors.purchase_cost = cost.error;
   }
 
-  const price = validateMoney(sellingPriceRaw, "Selling price");
+  const price = validateMoney(sellingPriceRaw, "El precio de venta");
   if (!price.ok) {
     fieldErrors.selling_price = price.error;
   }
@@ -125,9 +125,9 @@ export async function createProduct(
   if (error) {
     if (error.code === "23505") {
       return {
-        fieldErrors: { barcode: "This barcode is already in use." },
+        fieldErrors: { barcode: "Este código de barras ya está en uso." },
         values,
-        error: "Barcode must be unique.",
+        error: "El código de barras debe ser único.",
       };
     }
     return { error: error.message, values };
@@ -146,7 +146,7 @@ export async function updateProduct(
   await requireAdmin();
 
   if (!productId) {
-    return { error: "Product is required." };
+    return { error: "El producto es obligatorio." };
   }
 
   const name = String(formData.get("name") ?? "").trim();
@@ -171,18 +171,18 @@ export async function updateProduct(
   const fieldErrors: NonNullable<ProductFormState["fieldErrors"]> = {};
 
   if (!name) {
-    fieldErrors.name = "Name is required.";
+    fieldErrors.name = "El nombre es obligatorio.";
   }
   if (!unitType) {
-    fieldErrors.unit_type = "Select UNIT or WEIGHT.";
+    fieldErrors.unit_type = "Selecciona UNIT o WEIGHT.";
   }
 
-  const cost = validateMoney(purchaseCostRaw, "Purchase cost");
+  const cost = validateMoney(purchaseCostRaw, "El costo de compra");
   if (!cost.ok) {
     fieldErrors.purchase_cost = cost.error;
   }
 
-  const price = validateMoney(sellingPriceRaw, "Selling price");
+  const price = validateMoney(sellingPriceRaw, "El precio de venta");
   if (!price.ok) {
     fieldErrors.selling_price = price.error;
   }
@@ -210,9 +210,9 @@ export async function updateProduct(
   if (error) {
     if (error.code === "23505") {
       return {
-        fieldErrors: { barcode: "This barcode is already in use." },
+        fieldErrors: { barcode: "Este código de barras ya está en uso." },
         values,
-        error: "Barcode must be unique.",
+        error: "El código de barras debe ser único.",
       };
     }
     return { error: error.message, values };

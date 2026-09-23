@@ -11,11 +11,11 @@ export default async function HomePage() {
 
       <main className="flex flex-1 items-center justify-center px-4">
         <div className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-8">
-          <h1 className="text-xl font-semibold">Signed in</h1>
+          <h1 className="text-xl font-semibold">Sesión iniciada</h1>
           <p className="mt-2 text-sm text-zinc-500">
-            Welcome
-            {user.displayName ? `, ${user.displayName}` : ""}. You are signed
-            in as{" "}
+            Bienvenido/a
+            {user.displayName ? `, ${user.displayName}` : ""}. Has iniciado
+            sesión como{" "}
             <span className="font-medium text-zinc-700">{user.role}</span>.
           </p>
 
@@ -25,28 +25,36 @@ export default async function HomePage() {
                 href="/admin/products"
                 className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
               >
-                Products
+                Productos
               </Link>
               <Link
                 href="/admin/categories"
                 className="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
               >
-                Categories
+                Categorías
               </Link>
               <Link
                 href="/admin"
                 className="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
               >
-                Admin
+                Administración
               </Link>
             </div>
           ) : null}
+          <div className="mt-6 flex justify-center">
+            <Link
+              href="/pos"
+              className="rounded-md bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700"
+            >
+              Ir al POS
+            </Link>
+          </div>
         </div>
       </main>
 
       <footer className="border-t border-zinc-200 bg-white">
         <div className="mx-auto w-full max-w-5xl px-4 py-3 text-xs text-zinc-400">
-          Milestone 1 — auth &amp; roles
+          Hito 1 — autenticación y roles
         </div>
       </footer>
     </div>

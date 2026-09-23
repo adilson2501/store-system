@@ -16,7 +16,7 @@ export async function login(
   const password = String(formData.get("password") ?? "");
 
   if (!email || !password) {
-    return { error: "Enter your email and password." };
+    return { error: "Ingresa tu correo y contraseña." };
   }
 
   const supabase = await createClient();
@@ -27,7 +27,7 @@ export async function login(
   });
 
   if (error) {
-    return { error: "Invalid email or password." };
+    return { error: "Correo o contraseña incorrectos." };
   }
 
   redirect("/");

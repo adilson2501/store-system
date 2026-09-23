@@ -31,13 +31,13 @@ export default async function EditProductPage({
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex h-14 w-full max-w-3xl items-center justify-between px-4">
           <span className="text-sm font-semibold tracking-tight">
-            Store System
+            Sistema de Tienda
           </span>
           <Link
             href="/admin/products"
             className="text-sm font-medium text-zinc-600 hover:text-zinc-900"
           >
-            Back to products
+            Volver a productos
           </Link>
         </div>
       </header>
@@ -46,18 +46,18 @@ export default async function EditProductPage({
         <div className="mb-6">
           <h1 className="text-lg font-semibold">{product.name}</h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Current stock:{" "}
+            Stock actual:{" "}
             <span className="font-medium text-zinc-800">
               {formatQuantity(product.stock_quantity, product.unit_type)}{" "}
-              {product.unit_type === "WEIGHT" ? "kg" : "units"}
+              {product.unit_type === "WEIGHT" ? "kg" : "unidades"}
             </span>
             {" · "}
             {formatMoneyPen(product.selling_price)}
-            {product.is_active ? "" : " · Inactive"}
+            {product.is_active ? "" : " · Inactivo"}
           </p>
           <p className="mt-1 text-xs text-zinc-400">
-            Stock changes (purchases, adjustments) come later. Initial stock is
-            set at creation only in this milestone.
+            Los cambios de stock (compras, ajustes) vendrán después. El stock
+            inicial se configura solo al crear el producto en este hito.
           </p>
         </div>
 
@@ -82,7 +82,7 @@ export default async function EditProductPage({
 
       <footer className="border-t border-zinc-200 bg-white">
         <div className="mx-auto w-full max-w-3xl px-4 py-3 text-xs text-zinc-400">
-          Signed in as {user.email}
+          Sesión iniciada como {user.email}
         </div>
       </footer>
     </div>
