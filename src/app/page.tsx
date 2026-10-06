@@ -45,6 +45,12 @@ export default async function HomePage() {
               >
                 Administrar clientes
               </Link>
+              <Link
+                href="/admin/cash-sessions"
+                className="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                Historial de cajas
+              </Link>
             </div>
           ) : null}
           <div className="mt-6 flex justify-center">
@@ -53,6 +59,14 @@ export default async function HomePage() {
               className="rounded-md border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-bold text-blue-800 hover:bg-blue-100"
             >
               Clientes
+            </Link>
+          </div>
+          <div className="mt-3 flex justify-center">
+            <Link
+              href="/cash"
+              className="rounded-md border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-bold text-emerald-800 hover:bg-emerald-100"
+            >
+              Caja
             </Link>
           </div>
           <div className="mt-6 flex justify-center">
