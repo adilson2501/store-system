@@ -215,6 +215,20 @@ export async function updateProduct(
         error: "El código de barras debe ser único.",
       };
     }
+    if (
+      error.message ===
+      "Product unit type cannot be changed after inventory history exists"
+    ) {
+      return {
+        fieldErrors: {
+          unit_type:
+            "El tipo de unidad no puede cambiarse porque el producto ya tiene historial de inventario.",
+        },
+        values,
+        error:
+          "El tipo de unidad no puede cambiarse porque el producto ya tiene historial de inventario.",
+      };
+    }
     return { error: error.message, values };
   }
 
