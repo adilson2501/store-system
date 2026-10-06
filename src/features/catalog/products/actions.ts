@@ -196,18 +196,16 @@ export async function updateProduct(
   const supabase = await createClient();
   const barcode = normalizeOptionalBarcode(barcodeRaw);
 
-  const { error } = await supabase
-    .from("products")
-    .update({
-      name,
-      barcode,
-      category_id: categoryIdRaw || null,
-      unit_type: unitType,
-      purchase_cost: cost.ok ? cost.value : "0",
-      selling_price: price.ok ? price.value : "0",
-      is_active: isActive,
-    })
-    .eq("id", productId);
+  const { error } = await supabase.rpc("update_product", {
+    p_product_id: productId,
+    p_name: name,
+    p_barcode: barcode,
+    p_category_id: categoryIdRaw || null,
+    p_unit_type: unitType,
+    p_purchase_cost: cost.ok ? cost.value : "0",
+    p_selling_price: price.ok ? price.value : "0",
+    p_is_active: isActive,
+  });
 
   if (error) {
     if (error.code === "23505") {
