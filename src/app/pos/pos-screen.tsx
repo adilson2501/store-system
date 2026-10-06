@@ -113,11 +113,12 @@ export function PosScreen({ sellerName, initialCashSessionOpen }: { sellerName: 
   const productInputRef = useRef<HTMLInputElement>(null);
 
   const totalCents = cart.reduce((sum, line) => {
-    const lineTotal = lineTotalCents(line.selling_price, line.quantity);
+    const lineTotal = lineTotalCents(line.selling_price, line.quantity, line.unit_type);
     return lineTotal === null ? sum : sum + lineTotal;
   }, BigInt(0));
   const receivedCents = parseCents(amountReceived);
-  const changeCents = receivedCents === null ? null : receivedCents - totalCents;
+  const exactCashPayment = paymentMethod === "CASH" && amountReceived.trim() === "";
+  const changeCents = exactCashPayment ? BigInt(0) : receivedCents === null ? null : receivedCents - totalCents;
   const availableCreditCents =
     selectedCustomer === null ? null : parseSignedCents(selectedCustomer.available_credit);
   const customerUsable =
@@ -133,7 +134,7 @@ export function PosScreen({ sellerName, initialCashSessionOpen }: { sellerName: 
     }) &&
     (paymentMethod === "YAPE" ||
       paymentMethod === "CREDIT" ||
-      (receivedCents !== null && receivedCents >= totalCents)) &&
+      (exactCashPayment || (receivedCents !== null && receivedCents >= totalCents))) &&
     (paymentMethod !== "CREDIT" || creditOk);
 
   useEffect(() => {
@@ -258,7 +259,11 @@ export function PosScreen({ sellerName, initialCashSessionOpen }: { sellerName: 
       client_key: clientKey,
       payment_method: paymentMethod,
       items: cart.map((line) => ({ product_id: line.id, quantity: line.quantity })),
-      amount_received: paymentMethod === "CASH" ? amountReceived : null,
+      amount_received: paymentMethod === "CASH"
+        ? exactCashPayment
+          ? formatCents(totalCents)
+          : amountReceived
+        : null,
       customer_id: paymentMethod === "CREDIT" && selectedCustomer !== null ? selectedCustomer.id : null,
     } as const;
 
@@ -396,7 +401,7 @@ export function PosScreen({ sellerName, initialCashSessionOpen }: { sellerName: 
             ) : (
               <div className="divide-y divide-slate-100">
                 {cart.map((line) => {
-                  const lineTotal = lineTotalCents(line.selling_price, line.quantity);
+                  const lineTotal = lineTotalCents(line.selling_price, line.quantity, line.unit_type);
                   return (
                     <div key={line.id} className="px-4 py-4">
                       <div className="flex items-center gap-3">
@@ -467,9 +472,13 @@ export function PosScreen({ sellerName, initialCashSessionOpen }: { sellerName: 
                           onClick={() => {
                             setCart((current) => removeProduct(current, line.id));
                           }}
-                          className="rounded-lg px-2 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+                          aria-label={`Quitar ${line.name} del carrito`}
+                          title={`Quitar ${line.name} del carrito`}
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-red-600 hover:bg-red-50"
                         >
-                          Quitar
+                          <svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 7h12m-9 0V5a1 1 0 011-1h2a1 1 0 011 1v2m2 0v12a1 1 0 01-1 1H8a1 1 0 01-1-1V7m3 4v6m4-6v6" />
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -631,7 +640,7 @@ export function PosScreen({ sellerName, initialCashSessionOpen }: { sellerName: 
           {paymentMethod === "CASH" ? (
             <div className="mt-5 space-y-3">
               <label htmlFor="amount-received" className="block text-sm font-semibold text-slate-700">
-                Monto recibido
+                Monto recibido (opcional)
               </label>
               <div className="relative">
                 <input
@@ -655,6 +664,7 @@ export function PosScreen({ sellerName, initialCashSessionOpen }: { sellerName: 
                 <span className="font-semibold">Vuelto</span>
                 <span className="text-xl font-black">{changeCents !== null && changeCents >= BigInt(0) ? `S/. ${formatCents(changeCents)}` : "—"}</span>
               </div>
+              <p className="text-xs text-slate-500">Déjalo vacío si paga exacto.</p>
             </div>
           ) : paymentMethod === "YAPE" ? (
             <p className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">Verifica el pago en Yape y luego confirma.</p>

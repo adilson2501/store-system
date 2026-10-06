@@ -78,13 +78,24 @@ export function decrementIntegerQuantity(value: string): string {
   return next < BigInt(1) ? "1" : next.toString();
 }
 
-export function lineTotalCents(price: string, quantity: string): bigint | null {
+export function lineTotalCents(
+  price: string,
+  quantity: string,
+  unitType: "UNIT" | "WEIGHT",
+): bigint | null {
   const priceCents = parseCents(price);
   const quantityThousandths = parseThousandths(quantity);
   if (priceCents === null || quantityThousandths === null) return null;
 
+  const rawAmount = priceCents * quantityThousandths;
+
+  if (unitType === "WEIGHT") {
+    // Round positive values to the nearest S/. 0.10; exact midpoints go up.
+    return ((rawAmount + BigInt(5000)) / BigInt(10000)) * BigInt(10);
+  }
+
   // PostgreSQL round(numeric, 2): round half away from zero. Both values are positive.
-  return (priceCents * quantityThousandths + BigInt(500)) / BigInt(1000);
+  return (rawAmount + BigInt(500)) / BigInt(1000);
 }
 
 export function formatMoney(value: string | number | null | undefined): string {
