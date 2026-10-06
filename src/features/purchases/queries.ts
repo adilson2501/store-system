@@ -17,11 +17,14 @@ type PurchaseRow = {
   id: string;
   supplier_id: string;
   purchase_date: string;
-  status: "CONFIRMED";
+  status: "CONFIRMED" | "VOIDED";
   reference: string | null;
   total: string | number;
   created_by: string | null;
   created_at: string;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
 };
 
 type PurchaseItemRow = {
@@ -70,7 +73,13 @@ async function loadLabels(
   rows: PurchaseRow[],
 ) {
   const supplierIds = [...new Set(rows.map((row) => row.supplier_id))];
-  const profileIds = [...new Set(rows.flatMap((row) => (row.created_by ? [row.created_by] : [])))];
+  const profileIds = [
+    ...new Set(
+      rows.flatMap((row) =>
+        [row.created_by, row.voided_by].filter((id): id is string => Boolean(id)),
+      ),
+    ),
+  ];
   const [suppliers, profiles] = await Promise.all([
     supplierIds.length
       ? supabase.from("suppliers").select("id, name, ruc, active").in("id", supplierIds)
@@ -114,7 +123,7 @@ export async function listPurchases(
 
   let query = supabase
     .from("purchases")
-    .select("id, supplier_id, purchase_date, status, reference, total, created_by, created_at, purchase_items(id)", { count: "exact" });
+    .select("id, supplier_id, purchase_date, status, reference, total, created_by, created_at, voided_at, voided_by, void_reason, purchase_items(id)", { count: "exact" });
   if (filters.from) query = query.gte("purchase_date", filters.from);
   if (filters.to) query = query.lte("purchase_date", filters.to);
   if (filters.supplierId) query = query.eq("supplier_id", filters.supplierId);
@@ -147,7 +156,7 @@ export async function getPurchaseDetail(id: string): Promise<PurchaseHistoryDeta
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("purchases")
-    .select("id, supplier_id, purchase_date, status, reference, total, created_by, created_at")
+    .select("id, supplier_id, purchase_date, status, reference, total, created_by, created_at, voided_at, voided_by, void_reason")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`No se pudo cargar la compra: ${error.message}`);
@@ -172,6 +181,9 @@ export async function getPurchaseDetail(id: string): Promise<PurchaseHistoryDeta
     reference: purchase.reference,
     status: purchase.status,
     created_by_name: purchase.created_by ? labels.profiles.get(purchase.created_by) ?? "—" : "—",
+    voided_at: purchase.voided_at,
+    voided_by_name: purchase.voided_by ? labels.profiles.get(purchase.voided_by) ?? "—" : "—",
+    void_reason: purchase.void_reason,
     total: asString(purchase.total),
     items: ((itemData ?? []) as PurchaseItemRow[]).map((item) => ({
       id: item.id,

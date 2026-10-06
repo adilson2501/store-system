@@ -2,7 +2,10 @@ import Link from "next/link";
 import { AppHeader } from "@/components/app-header";
 import { requireAdmin } from "@/features/auth/session";
 import { listPurchaseSuppliers, listPurchases } from "@/features/purchases/queries";
+import type { PurchaseStatus } from "@/features/purchases/history-types";
 import { formatCents, parseCents } from "@/features/pos/money";
+
+const statusLabels: Record<PurchaseStatus, string> = { CONFIRMED: "Confirmada", VOIDED: "Anulada" };
 
 function money(value: string): string {
   const cents = parseCents(value);
@@ -45,7 +48,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Pr
       <AppHeader user={user} />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div><h1 className="text-lg font-semibold">Historial de compras</h1><p className="mt-1 text-sm text-zinc-500">Consulta administrativa de compras confirmadas.</p></div>
+          <div><h1 className="text-lg font-semibold">Historial de compras</h1><p className="mt-1 text-sm text-zinc-500">Consulta administrativa de compras registradas.</p></div>
           <Link href="/admin/purchases/new" className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-700">Nueva compra</Link>
         </div>
 
@@ -60,9 +63,9 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Pr
 
         {history.rows.length === 0 ? <div className="rounded-lg border border-zinc-200 bg-white px-4 py-10 text-center"><p className="text-zinc-600">{hasFilters ? "No se encontraron compras con los filtros seleccionados." : "Aún no hay compras registradas."}</p>{!hasFilters ? <Link href="/admin/purchases/new" className="mt-4 inline-block rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-700">Registrar primera compra</Link> : null}</div> : (
           <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-            <table className="min-w-[850px] w-full text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-500"><tr><th className="px-4 py-3 font-medium">Fecha</th><th className="px-4 py-3 font-medium">Proveedor</th><th className="px-4 py-3 font-medium">Referencia</th><th className="px-4 py-3 font-medium">Productos</th><th className="px-4 py-3 font-medium">Total</th><th className="px-4 py-3 font-medium">Registrado por</th><th className="px-4 py-3 font-medium">Acción</th></tr></thead>
-              <tbody>{history.rows.map((row) => <tr className="border-b border-zinc-100 last:border-0" key={row.id}><td className="whitespace-nowrap px-4 py-3">{purchaseDate(row.purchase_date)}</td><td className="px-4 py-3 font-medium">{row.supplier_name}</td><td className="max-w-48 truncate px-4 py-3">{row.reference ?? "—"}</td><td className="px-4 py-3">{row.item_count} {row.item_count === 1 ? "línea" : "líneas"}</td><td className="px-4 py-3 font-semibold tabular-nums">{money(row.total)}</td><td className="px-4 py-3">{row.creator_name}</td><td className="px-4 py-3"><Link className="font-semibold text-zinc-700 hover:text-zinc-950 hover:underline" href={`/admin/purchases/${row.id}`}>Ver detalle</Link></td></tr>)}</tbody>
+            <table className="min-w-[950px] w-full text-left text-sm">
+              <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-500"><tr><th className="px-4 py-3 font-medium">Fecha</th><th className="px-4 py-3 font-medium">Proveedor</th><th className="px-4 py-3 font-medium">Referencia</th><th className="px-4 py-3 font-medium">Productos</th><th className="px-4 py-3 font-medium">Total</th><th className="px-4 py-3 font-medium">Registrado por</th><th className="px-4 py-3 font-medium">Estado</th><th className="px-4 py-3 font-medium">Acción</th></tr></thead>
+              <tbody>{history.rows.map((row) => <tr className="border-b border-zinc-100 last:border-0" key={row.id}><td className="whitespace-nowrap px-4 py-3">{purchaseDate(row.purchase_date)}</td><td className="px-4 py-3 font-medium">{row.supplier_name}</td><td className="max-w-48 truncate px-4 py-3">{row.reference ?? "—"}</td><td className="px-4 py-3">{row.item_count} {row.item_count === 1 ? "línea" : "líneas"}</td><td className="px-4 py-3 font-semibold tabular-nums">{money(row.total)}</td><td className="px-4 py-3">{row.creator_name}</td><td className="px-4 py-3"><span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${row.status === "VOIDED" ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"}`}>{statusLabels[row.status]}</span></td><td className="px-4 py-3"><Link className="font-semibold text-zinc-700 hover:text-zinc-950 hover:underline" href={`/admin/purchases/${row.id}`}>Ver detalle</Link></td></tr>)}</tbody>
             </table>
           </div>
         )}

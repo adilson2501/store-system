@@ -1,4 +1,4 @@
-export type PurchaseStatus = "CONFIRMED";
+export type PurchaseStatus = "CONFIRMED" | "VOIDED";
 export type PurchaseUnitType = "UNIT" | "WEIGHT";
 
 export type PurchaseHistoryFilters = {
@@ -54,6 +54,9 @@ export type PurchaseHistoryDetail = {
   reference: string | null;
   status: PurchaseStatus;
   created_by_name: string;
+  voided_at: string | null;
+  voided_by_name: string;
+  void_reason: string | null;
   total: string;
   items: PurchaseHistoryItem[];
 };
