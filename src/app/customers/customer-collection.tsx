@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { registerCustomerPaymentForPos } from "@/features/customers/actions";
+import { getCurrentCashSessionState } from "@/features/cash/actions";
 import { parseSignedCents, formatCustomerMoney } from "@/features/customers/validation";
 import { getPosCustomer, searchPosCustomers } from "@/features/pos/customers";
 import { parseCents, sanitizeDecimalInput } from "@/features/pos/money";
@@ -24,6 +26,7 @@ export function CustomerCollection() {
   const [paymentError, setPaymentError] = useState("");
   const [paymentSuccess, setPaymentSuccess] = useState("");
   const [clientKey, setClientKey] = useState(newClientKey);
+  const [cashSessionOpen, setCashSessionOpen] = useState<boolean | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const debtCents = selectedCustomer === null ? null : parseSignedCents(selectedCustomer.current_debt);
@@ -36,7 +39,23 @@ export function CustomerCollection() {
     && amountCents !== null
     && amountCents > BigInt(0)
     && !amountTooHigh
+    && cashSessionOpen === true
     && !isPending;
+
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentCashSessionState()
+      .then((current) => {
+        if (!cancelled) setCashSessionOpen(current.kind === "OPEN");
+      })
+      .catch((error) => {
+        console.error(error);
+        if (!cancelled) setCashSessionOpen(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -115,6 +134,7 @@ export function CustomerCollection() {
       const result = await registerCustomerPaymentForPos(input);
       if (result.error) {
         setPaymentError(result.error);
+        if (result.error.includes("Debes abrir caja")) setCashSessionOpen(false);
         return;
       }
 
@@ -207,7 +227,18 @@ export function CustomerCollection() {
             {noDebt ? <p className="mt-2 font-semibold text-emerald-700">Sin deuda pendiente</p> : null}
           </div>
 
-          {!noDebt ? (
+          {!noDebt && cashSessionOpen === false ? (
+            <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
+              <p className="font-semibold">Debes abrir caja antes de registrar un pago.</p>
+              <Link href="/cash" className="mt-3 inline-flex min-h-12 items-center rounded-lg bg-amber-700 px-4 text-sm font-bold text-white hover:bg-amber-800">
+                Abrir caja
+              </Link>
+            </div>
+          ) : null}
+          {!noDebt && cashSessionOpen === null ? (
+            <p className="mt-5 rounded-xl bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-600">Verificando caja...</p>
+          ) : null}
+          {!noDebt && cashSessionOpen === true ? (
             <div className="mt-5 space-y-4">
               <h3 className="text-lg font-bold">Registrar pago</h3>
               {paymentError ? <p className="rounded-lg bg-red-50 px-3 py-3 text-sm font-semibold text-red-700" role="alert">{paymentError}</p> : null}

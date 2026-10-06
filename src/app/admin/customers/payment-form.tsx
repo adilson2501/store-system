@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { registerCustomerPayment, type PaymentFormState } from "@/features/customers/actions";
 import { parseSignedCents } from "@/features/customers/validation";
 
@@ -16,7 +17,7 @@ export function CustomerPaymentForm({ customerId, currentDebt, initialClientKey 
 
   return (
     <form action={formAction} className="space-y-4">
-      {state.error ? <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{state.error}</p> : null}
+      {state.error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert"><p>{state.error}</p>{state.error.includes("Debes abrir caja") ? <Link href="/cash" className="mt-2 inline-block font-semibold underline">Abrir caja</Link> : null}</div> : null}
       {state.success ? <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">{state.success}</p> : null}
       <input type="hidden" name="client_key" value={values.client_key} />
 

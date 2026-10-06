@@ -127,6 +127,7 @@ function paymentError(raw: string) {
   if (message.includes("Payment exceeds current debt")) return "El pago no puede superar la deuda actual.";
   if (message.includes("Payment idempotency conflict")) return "La clave de pago ya fue usada con otros datos.";
   if (message.includes("Customer is inactive")) return "El cliente está inactivo.";
+  if (message.includes("Open cash session is required")) return "Debes abrir caja antes de registrar un pago.";
   return message;
 }
 

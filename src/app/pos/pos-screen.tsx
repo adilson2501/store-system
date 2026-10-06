@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { confirmSale } from "@/features/pos/actions";
+import { getCurrentCashSessionState } from "@/features/cash/actions";
 import { addProduct, removeProduct, updateQuantity } from "@/features/pos/cart";
 import { findByBarcode, searchProducts } from "@/features/pos/catalog";
 import { searchPosCustomers } from "@/features/pos/customers";
@@ -75,6 +76,9 @@ function toPosErrorMessage(raw: string): string {
   if (message.includes("Customer access requires")) {
     return "No tienes acceso a clientes.";
   }
+  if (message.includes("Open cash session is required")) {
+    return "La caja está cerrada. Abre una caja para continuar.";
+  }
   if (message.includes("At least one sale item")) {
     return "Agrega al menos un producto.";
   }
@@ -88,7 +92,7 @@ function toPosErrorMessage(raw: string): string {
   return message;
 }
 
-export function PosScreen({ sellerName }: { sellerName: string }) {
+export function PosScreen({ sellerName, initialCashSessionOpen }: { sellerName: string; initialCashSessionOpen: boolean }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PosProduct[]>([]);
@@ -104,6 +108,7 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
   const [customerLoading, setCustomerLoading] = useState(false);
   const [customerError, setCustomerError] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<PosCustomer | null>(null);
+  const [cashSessionOpen, setCashSessionOpen] = useState(initialCashSessionOpen);
   const [isPending, startTransition] = useTransition();
   const productInputRef = useRef<HTMLInputElement>(null);
 
@@ -132,8 +137,8 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
     (paymentMethod !== "CREDIT" || creditOk);
 
   useEffect(() => {
-    productInputRef.current?.focus();
-  }, []);
+    if (cashSessionOpen) productInputRef.current?.focus();
+  }, [cashSessionOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -260,7 +265,17 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
     startTransition(async () => {
       const result = await confirmSale(input);
       if (!result.ok) {
+        const sessionRequired = result.error.includes("Open cash session is required");
         setMessage(toPosErrorMessage(result.error));
+        if (sessionRequired) {
+          setCashSessionOpen(false);
+          try {
+            const current = await getCurrentCashSessionState();
+            setCashSessionOpen(current.kind === "OPEN");
+          } catch (error) {
+            console.error(error);
+          }
+        }
         productInputRef.current?.focus();
         return;
       }
@@ -278,6 +293,33 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
         productInputRef.current?.focus();
       }, 1200);
     });
+  }
+
+  if (!cashSessionOpen) {
+    return (
+      <main className="min-h-screen bg-slate-100 text-slate-950">
+        <header className="border-b border-slate-200 bg-white">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+            <div>
+              <p className="text-lg font-bold tracking-tight">Punto de venta</p>
+              <p className="text-xs text-slate-500">{sellerName}</p>
+            </div>
+            <Link href="/cash" className="rounded-lg px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50">
+              Caja
+            </Link>
+          </div>
+        </header>
+        <section className="mx-auto flex min-h-[calc(100vh-73px)] max-w-xl items-center px-4 py-8">
+          <div className="w-full rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
+            <p className="text-2xl font-black">Caja cerrada</p>
+            <p className="mt-3 text-slate-600">Debes abrir caja antes de realizar ventas.</p>
+            <Link href="/cash" className="mt-6 inline-flex min-h-14 items-center rounded-xl bg-blue-600 px-6 text-lg font-black text-white hover:bg-blue-700">
+              Abrir caja
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   return (
