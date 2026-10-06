@@ -39,8 +39,22 @@ export default async function HomePage() {
               >
                 Administración
               </Link>
+              <Link
+                href="/admin/customers"
+                className="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              >
+                Administrar clientes
+              </Link>
             </div>
           ) : null}
+          <div className="mt-6 flex justify-center">
+            <Link
+              href="/customers"
+              className="rounded-md border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-bold text-blue-800 hover:bg-blue-100"
+            >
+              Clientes
+            </Link>
+          </div>
           <div className="mt-6 flex justify-center">
             <Link
               href="/pos"

@@ -18,6 +18,14 @@ export function AppHeader({ user }: { user: SessionUser }) {
           <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
             {user.role}
           </span>
+          <Link href="/customers" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
+            Clientes
+          </Link>
+          {user.role === "ADMIN" ? (
+            <Link href="/admin/customers" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
+              Administración
+            </Link>
+          ) : null}
           <form action={logout}>
             <button
               type="submit"
