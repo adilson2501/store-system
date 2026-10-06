@@ -55,3 +55,16 @@ export type ConfirmedSale = {
     line_subtotal: string;
   }>;
 };
+
+export type ConfirmSaleFailureKind = "DEFINITIVE" | "UNKNOWN";
+
+export type ConfirmSaleFailure = {
+  ok: false;
+  kind: ConfirmSaleFailureKind;
+  code: string;
+  error: string;
+};
+
+export type ConfirmSaleResult =
+  | { ok: true; sale: ConfirmedSale }
+  | ConfirmSaleFailure;
