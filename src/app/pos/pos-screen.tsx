@@ -85,6 +85,9 @@ function toPosErrorMessage(raw: string): string {
   if (message.includes("Unsupported payment method")) {
     return "Método de pago no admitido.";
   }
+  if (message.includes("SALE_IDEMPOTENCY_CONFLICT")) {
+    return "Esta operación cambió y no puede volver a enviarse.";
+  }
   if (message.includes("sales_client_key_unique_idx")) {
     return "Esta venta ya fue registrada.";
   }
@@ -92,7 +95,7 @@ function toPosErrorMessage(raw: string): string {
   return message;
 }
 
-export function PosScreen({ sellerName, initialCashSessionOpen }: { sellerName: string; initialCashSessionOpen: boolean }) {
+export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessionId }: { sellerName: string; initialCashSessionOpen: boolean; initialCashSessionId: string | null }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PosProduct[]>([]);
@@ -109,6 +112,7 @@ export function PosScreen({ sellerName, initialCashSessionOpen }: { sellerName: 
   const [customerError, setCustomerError] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<PosCustomer | null>(null);
   const [cashSessionOpen, setCashSessionOpen] = useState(initialCashSessionOpen);
+  const [cashSessionId, setCashSessionId] = useState<string | null>(initialCashSessionId);
   const [isPending, startTransition] = useTransition();
   const productInputRef = useRef<HTMLInputElement>(null);
 
@@ -254,9 +258,14 @@ export function PosScreen({ sellerName, initialCashSessionOpen }: { sellerName: 
 
   function submitSale() {
     if (!canConfirm || isPending) return;
+    if (!cashSessionId) {
+      setMessage("La caja está cerrada. Abre una caja para continuar.");
+      return;
+    }
 
     const input = {
       client_key: clientKey,
+      cash_session_id: cashSessionId,
       payment_method: paymentMethod,
       items: cart.map((line) => ({ product_id: line.id, quantity: line.quantity })),
       amount_received: paymentMethod === "CASH"
@@ -277,6 +286,7 @@ export function PosScreen({ sellerName, initialCashSessionOpen }: { sellerName: 
           try {
             const current = await getCurrentCashSessionState();
             setCashSessionOpen(current.kind === "OPEN");
+            setCashSessionId(current.kind === "OPEN" ? current.session.session_id : null);
           } catch (error) {
             console.error(error);
           }

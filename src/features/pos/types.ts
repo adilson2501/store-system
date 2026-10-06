@@ -29,6 +29,7 @@ export type CartLine = PosProduct & {
 
 export type ConfirmSaleInput = {
   client_key: string;
+  cash_session_id: string;
   payment_method: PaymentMethod;
   items: Array<{ product_id: string; quantity: string }>;
   amount_received: string | null;

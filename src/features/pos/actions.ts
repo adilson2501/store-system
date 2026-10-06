@@ -16,6 +16,7 @@ export async function confirmSale(input: ConfirmSaleInput): Promise<
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("confirm_sale", {
     p_client_key: input.client_key,
+    p_cash_session_id: input.cash_session_id,
     p_payment_method: input.payment_method,
     p_items: input.items,
     p_amount_received: input.amount_received,

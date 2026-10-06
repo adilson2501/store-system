@@ -5,11 +5,14 @@ import { PosScreen } from "@/app/pos/pos-screen";
 export default async function PosPage() {
   const user = await requireUser();
   let cashSessionOpen = false;
+  let cashSessionId: string | null = null;
   try {
-    cashSessionOpen = (await getCurrentCashSessionState()).kind === "OPEN";
+    const state = await getCurrentCashSessionState();
+    cashSessionOpen = state.kind === "OPEN";
+    cashSessionId = state.kind === "OPEN" ? state.session.session_id : null;
   } catch (error) {
     console.error(error);
   }
 
-  return <PosScreen sellerName={user.displayName ?? user.email} initialCashSessionOpen={cashSessionOpen} />;
+  return <PosScreen sellerName={user.displayName ?? user.email} initialCashSessionOpen={cashSessionOpen} initialCashSessionId={cashSessionId} />;
 }
