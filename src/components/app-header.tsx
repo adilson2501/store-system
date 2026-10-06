@@ -35,7 +35,7 @@ export function AppHeader({ user }: { user: SessionUser }) {
               <Link href="/admin/suppliers" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
                 Proveedores
               </Link>
-              <Link href="/admin/purchases/new" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
+              <Link href="/admin/purchases" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
                 Compras
               </Link>
               <Link href="/admin/sales" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
