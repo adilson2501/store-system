@@ -26,6 +26,9 @@ type SaleRow = {
   amount_received: string | number | null;
   amount_change: string | number | null;
   created_at: string;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
 };
 
 type SaleItemRow = {
@@ -86,13 +89,13 @@ async function loadLabels(
   supabase: Awaited<ReturnType<typeof createClient>>,
   rows: SaleRow[],
 ) {
-  const sellerIds = [...new Set(rows.map((row) => row.seller_id))];
+  const profileIds = [...new Set(rows.flatMap((row) => [row.seller_id, ...(row.voided_by ? [row.voided_by] : [])]))];
   const customerIds = [...new Set(rows.flatMap((row) => (row.customer_id ? [row.customer_id] : [])))];
   const sessionIds = [...new Set(rows.flatMap((row) => (row.cash_session_id ? [row.cash_session_id] : [])))];
 
   const [profiles, customers, sessions] = await Promise.all([
-    sellerIds.length
-      ? supabase.from("profiles").select("id, display_name").in("id", sellerIds)
+    profileIds.length
+      ? supabase.from("profiles").select("id, display_name").in("id", profileIds)
       : Promise.resolve({ data: [], error: null }),
     customerIds.length
       ? supabase.from("customers").select("id, name").in("id", customerIds)
@@ -206,7 +209,7 @@ export async function getSaleDetail(saleId: string): Promise<SaleHistoryDetail |
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("sales")
-    .select("id, seller_id, payment_method, customer_id, cash_session_id, status, total, amount_received, amount_change, created_at")
+    .select("id, seller_id, payment_method, customer_id, cash_session_id, status, total, amount_received, amount_change, created_at, voided_at, voided_by, void_reason")
     .eq("id", saleId)
     .maybeSingle();
   if (error) throw new Error(`No se pudo cargar la venta: ${error.message}`);
@@ -235,6 +238,9 @@ export async function getSaleDetail(saleId: string): Promise<SaleHistoryDetail |
     amount_received: sale.amount_received === null ? null : asString(sale.amount_received),
     amount_change: sale.amount_change === null ? null : asString(sale.amount_change),
     customer_name: sale.customer_id ? labels.customers.get(sale.customer_id) ?? "Cliente no encontrado" : null,
+    voided_at: sale.voided_at,
+    voided_by_name: sale.voided_by ? labels.profiles.get(sale.voided_by) ?? "Operador sin nombre" : null,
+    void_reason: sale.void_reason,
     cash_session: session,
     items: items.map((item): SaleHistoryItem => ({
       id: item.id,

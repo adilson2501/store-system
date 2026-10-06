@@ -49,6 +49,9 @@ export type SaleHistoryDetail = {
   amount_received: string | null;
   amount_change: string | null;
   customer_name: string | null;
+  voided_at: string | null;
+  voided_by_name: string | null;
+  void_reason: string | null;
   cash_session: {
     status: "OPEN" | "CLOSED";
     opened_at: string;
