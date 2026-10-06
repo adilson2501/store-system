@@ -5,6 +5,9 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { confirmSale } from "@/features/pos/actions";
 import { addProduct, removeProduct, updateQuantity } from "@/features/pos/cart";
 import { findByBarcode, searchProducts } from "@/features/pos/catalog";
+import { searchPosCustomers } from "@/features/pos/customers";
+import { parseSignedCents } from "@/features/customers/validation";
+import type { CartLine, PaymentMethod, PosCustomer, PosProduct } from "@/features/pos/types";
 import {
   decrementIntegerQuantity,
   formatCents,
@@ -15,7 +18,6 @@ import {
   parseThousandths,
   sanitizeDecimalInput,
 } from "@/features/pos/money";
-import type { CartLine, PaymentMethod, PosProduct } from "@/features/pos/types";
 
 function newClientKey() {
   return crypto.randomUUID();
@@ -52,6 +54,27 @@ function toPosErrorMessage(raw: string): string {
   if (message.includes("YAPE does not accept cash received")) {
     return "YAPE no acepta monto en efectivo.";
   }
+  if (message.includes("Customer not found")) {
+    return "Cliente no encontrado. Solicita al administrador registrarlo.";
+  }
+  if (message.includes("Customer is inactive")) {
+    return "El cliente está inactivo.";
+  }
+  if (message.includes("Customer credit is disabled")) {
+    return "El crédito está deshabilitado para este cliente.";
+  }
+  if (message.includes("Credit limit exceeded")) {
+    return "Crédito insuficiente para esta venta.";
+  }
+  if (message.includes("Customer is required only for FIADO")) {
+    return "Selecciona un cliente para la venta fiada.";
+  }
+  if (message.includes("FIADO does not accept cash received")) {
+    return "La venta fiada no usa monto recibido.";
+  }
+  if (message.includes("Customer access requires")) {
+    return "No tienes acceso a clientes.";
+  }
   if (message.includes("At least one sale item")) {
     return "Agrega al menos un producto.";
   }
@@ -73,6 +96,14 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
   const [amountReceived, setAmountReceived] = useState("");
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState<string | null>(null);
+  const [clientKey, setClientKey] = useState(newClientKey);
+  const [customerQuery, setCustomerQuery] = useState("");
+  const [customerResults, setCustomerResults] = useState<PosCustomer[]>([]);
+  const [customerSearched, setCustomerSearched] = useState(false);
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const [customerLoading, setCustomerLoading] = useState(false);
+  const [customerError, setCustomerError] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<PosCustomer | null>(null);
   const [isPending, startTransition] = useTransition();
   const productInputRef = useRef<HTMLInputElement>(null);
 
@@ -82,6 +113,12 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
   }, BigInt(0));
   const receivedCents = parseCents(amountReceived);
   const changeCents = receivedCents === null ? null : receivedCents - totalCents;
+  const availableCreditCents =
+    selectedCustomer === null ? null : parseSignedCents(selectedCustomer.available_credit);
+  const customerUsable =
+    selectedCustomer !== null && selectedCustomer.active && selectedCustomer.credit_enabled;
+  const creditOk =
+    customerUsable && availableCreditCents !== null && totalCents <= availableCreditCents;
   const canConfirm =
     cart.length > 0 &&
     cart.every((line) => {
@@ -89,7 +126,10 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
       return quantity !== null && quantity > BigInt(0) &&
         (line.unit_type === "WEIGHT" || quantity % BigInt(1000) === BigInt(0));
     }) &&
-    (paymentMethod === "YAPE" || (receivedCents !== null && receivedCents >= totalCents));
+    (paymentMethod === "YAPE" ||
+      paymentMethod === "CREDIT" ||
+      (receivedCents !== null && receivedCents >= totalCents)) &&
+    (paymentMethod !== "CREDIT" || creditOk);
 
   useEffect(() => {
     productInputRef.current?.focus();
@@ -114,6 +154,55 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
       window.clearTimeout(timer);
     };
   }, [query]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const term = customerQuery.trim();
+    if (!customerOpen) return;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const customers = await searchPosCustomers(term);
+        if (!cancelled) {
+          setCustomerResults(customers);
+          setCustomerSearched(true);
+          setCustomerLoading(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setCustomerResults([]);
+          setCustomerSearched(false);
+          setCustomerLoading(false);
+          setCustomerError("No se pudieron cargar los clientes. Intenta de nuevo.");
+        }
+      }
+    }, 150);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [customerOpen, customerQuery]);
+
+  function resetCustomer(open = false) {
+    setSelectedCustomer(null);
+    setCustomerQuery("");
+    setCustomerResults([]);
+    setCustomerSearched(false);
+    setCustomerError("");
+    setCustomerLoading(open);
+    setCustomerOpen(open);
+  }
+
+  function selectCustomer(customer: PosCustomer) {
+    setSelectedCustomer(customer);
+    setCustomerQuery("");
+    setCustomerResults([]);
+    setCustomerSearched(false);
+    setCustomerError("");
+    setCustomerLoading(false);
+    setCustomerOpen(false);
+  }
 
   function keepScannerReady() {
     setQuery("");
@@ -160,12 +249,12 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
   function submitSale() {
     if (!canConfirm || isPending) return;
 
-    const clientKey = newClientKey();
     const input = {
       client_key: clientKey,
       payment_method: paymentMethod,
       items: cart.map((line) => ({ product_id: line.id, quantity: line.quantity })),
       amount_received: paymentMethod === "CASH" ? amountReceived : null,
+      customer_id: paymentMethod === "CREDIT" && selectedCustomer !== null ? selectedCustomer.id : null,
     } as const;
 
     startTransition(async () => {
@@ -181,7 +270,9 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
       setCart([]);
       setAmountReceived("");
       setPaymentMethod("CASH");
+      resetCustomer();
       setMessage("");
+      setClientKey(newClientKey());
       window.setTimeout(() => {
         setSuccess(null);
         productInputRef.current?.focus();
@@ -351,8 +442,8 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
           <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Total</p>
           <p className="mt-1 text-5xl font-black tracking-tight">S/. {formatCents(totalCents)}</p>
 
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            {(["CASH", "YAPE"] as const).map((method) => (
+          <div className="mt-6 grid grid-cols-3 gap-3">
+            {(["CASH", "YAPE", "CREDIT"] as const).map((method) => (
               <button
                 key={method}
                 type="button"
@@ -362,13 +453,138 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
                   if (method === "YAPE") {
                     setAmountReceived("");
                   }
+                   if (method !== "CREDIT") {
+                     resetCustomer(false);
+                   }
                 }}
                 className={`min-h-14 rounded-xl text-lg font-bold ${paymentMethod === method ? "bg-blue-600 text-white shadow-sm" : "border border-slate-300 text-slate-700 hover:bg-slate-50"}`}
               >
-                {method === "CASH" ? "EFECTIVO" : "YAPE"}
+                {method === "CASH" ? "EFECTIVO" : method === "YAPE" ? "YAPE" : "FIADO"}
               </button>
             ))}
           </div>
+
+           {paymentMethod === "CREDIT" ? (
+             <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3">
+               <label htmlFor="customer-search" className="block text-sm font-semibold text-amber-900">
+                 Buscar o seleccionar cliente
+               </label>
+               <input
+                 id="customer-search"
+                 type="search"
+                 value={customerQuery}
+                 onChange={(event) => {
+                   setCustomerQuery(event.target.value);
+                   setCustomerOpen(true);
+                   setCustomerLoading(true);
+                   setCustomerSearched(false);
+                   setCustomerError("");
+                 }}
+                 onFocus={() => {
+                   setCustomerOpen(true);
+                   setCustomerLoading(true);
+                   setCustomerSearched(false);
+                   setCustomerError("");
+                 }}
+                 autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                 placeholder="Nombre o teléfono"
+                 className="mt-2 h-14 w-full rounded-xl border-2 border-amber-300 bg-white px-4 text-base outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
+               />
+
+               {customerOpen && customerLoading ? (
+                 <p className="mt-3 rounded-xl bg-white px-4 py-4 text-sm font-semibold text-slate-600">
+                   Cargando clientes...
+                 </p>
+               ) : null}
+
+               {customerOpen && !customerLoading && customerError ? (
+                 <p className="mt-3 rounded-xl bg-white px-4 py-4 text-sm font-semibold text-red-700">
+                   {customerError}
+                 </p>
+               ) : null}
+
+               {customerOpen && !customerLoading && !customerError && customerResults.length > 0 ? (
+                 <div className="mt-2 max-h-64 space-y-2 overflow-y-auto">
+                   {customerResults.map((customer) => (
+                    <button
+                      key={customer.id}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => selectCustomer(customer)}
+                      className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white px-4 py-3 text-left hover:border-amber-400 hover:bg-amber-100"
+                    >
+                       <span className="min-w-0">
+                         <span className="block truncate font-semibold">{customer.name}</span>
+                         <span className="text-xs text-slate-500">
+                           {customer.phone ?? "Sin teléfono"}
+                         </span>
+                       </span>
+                     </button>
+                   ))}
+                 </div>
+               ) : null}
+
+               {customerOpen && !customerLoading && !customerError && customerSearched && customerResults.length === 0 ? (
+                 <p className="mt-3 rounded-xl bg-white px-4 py-4 text-sm font-semibold text-slate-600">
+                   No se encontraron clientes.
+                   {customerQuery.trim() ? " Solicita al administrador registrarlo." : ""}
+                 </p>
+               ) : null}
+
+              {selectedCustomer === null && !customerSearched ? (
+                <p className="mt-2 text-sm text-amber-900">Selecciona un cliente para vender fiado.</p>
+              ) : null}
+
+              {selectedCustomer !== null ? (
+                <div className="mt-3 rounded-xl border border-amber-300 bg-white p-3">
+                   <div className="flex items-center justify-between gap-3">
+                     <p className="min-w-0 truncate font-bold">{selectedCustomer.name}</p>
+                     <button
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                       onClick={() => resetCustomer(true)}
+                      className="shrink-0 rounded-lg px-2 py-1 text-sm font-semibold text-amber-800 hover:bg-amber-50"
+                    >
+                      Cambiar
+                    </button>
+                   </div>
+                   <dl className="mt-2 space-y-1 text-sm">
+                     <div className="flex items-center justify-between">
+                       <dt className="text-slate-600">Nombre</dt>
+                       <dd className="max-w-[65%] truncate font-semibold">{selectedCustomer.name}</dd>
+                     </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="text-slate-600">Deuda actual</dt>
+                      <dd className="font-semibold">{formatMoney(selectedCustomer.current_debt)}</dd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="text-slate-600">Límite</dt>
+                      <dd className="font-semibold">{formatMoney(selectedCustomer.credit_limit)}</dd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="text-slate-600">Disponible</dt>
+                      <dd className="font-bold">{formatMoney(selectedCustomer.available_credit)}</dd>
+                    </div>
+                  </dl>
+                  {!selectedCustomer.active ? (
+                    <p className="mt-2 text-sm font-semibold text-red-700">El cliente está inactivo.</p>
+                  ) : null}
+                  {selectedCustomer.active && !selectedCustomer.credit_enabled ? (
+                    <p className="mt-2 text-sm font-semibold text-red-700">
+                      Crédito deshabilitado para este cliente.
+                    </p>
+                  ) : null}
+                  {customerUsable && availableCreditCents !== null && totalCents > availableCreditCents ? (
+                    <p className="mt-2 text-sm font-semibold text-red-700">
+                      Crédito insuficiente. Disponible: {formatMoney(selectedCustomer.available_credit)}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {paymentMethod === "CASH" ? (
             <div className="mt-5 space-y-3">
@@ -398,9 +614,9 @@ export function PosScreen({ sellerName }: { sellerName: string }) {
                 <span className="text-xl font-black">{changeCents !== null && changeCents >= BigInt(0) ? `S/. ${formatCents(changeCents)}` : "—"}</span>
               </div>
             </div>
-          ) : (
+          ) : paymentMethod === "YAPE" ? (
             <p className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">Verifica el pago en Yape y luego confirma.</p>
-          )}
+          ) : null}
 
           {success ? <p className="mt-5 rounded-xl bg-emerald-100 px-4 py-3 text-center font-bold text-emerald-900" role="status">{success}</p> : null}
           <button

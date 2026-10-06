@@ -19,6 +19,7 @@ export async function confirmSale(input: ConfirmSaleInput): Promise<
     p_payment_method: input.payment_method,
     p_items: input.items,
     p_amount_received: input.amount_received,
+    p_customer_id: input.customer_id,
   });
 
   if (error) return { ok: false, error: error.message };
