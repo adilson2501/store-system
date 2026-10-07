@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run src/features",
+    "test:unit": "vitest run src/features",
+    "test:integration": "vitest run tests/integration"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -25,8 +28,10 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
+    "fake-indexeddb": "^6.2.5",
     "supabase": "^2.117.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }
