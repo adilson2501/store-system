@@ -1,9 +1,17 @@
 import Link from "next/link";
+import { ArrowLeft, Package } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { requireAdmin } from "@/features/auth/session";
 import { getPurchaseDetail } from "@/features/purchases/queries";
 import { VoidPurchaseForm } from "@/app/admin/purchases/[id]/void-purchase-form";
 import { formatCents, parseCents } from "@/features/pos/money";
 import type { PurchaseHistoryItem } from "@/features/purchases/history-types";
+
+const statusLabels = { CONFIRMED: "Confirmada", VOIDED: "Anulada" } as const;
 
 function money(value: string): string {
   const cents = parseCents(value);
@@ -38,22 +46,17 @@ export default async function PurchaseDetailPage({ params }: { params: Promise<{
   const purchase = await getPurchaseDetail(id);
 
   if (!purchase) {
-    return <div className="flex flex-col bg-zinc-50 text-zinc-900"><main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8"><div className="rounded-lg border border-zinc-200 bg-white px-4 py-10 text-center"><p className="text-zinc-600">Compra no encontrada.</p><Link href="/admin/purchases" className="mt-4 inline-block text-sm font-semibold text-zinc-700 hover:text-zinc-900">Volver a compras</Link></div></main></div>;
+    return <div className="rounded-lg border border-border bg-card px-4 py-10 text-center"><p className="text-muted-foreground">Compra no encontrada.</p><Link href="/admin/purchases" className={cn(buttonVariants({ variant: "outline" }), "mt-4")}>Volver a compras</Link></div>;
   }
 
   return (
-    <div className="flex flex-col bg-zinc-50 text-zinc-900">
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-lg font-semibold">Detalle de compra</h1><p className="mt-1 text-sm text-zinc-500">Consulta administrativa read-only</p></div><Link href="/admin/purchases" className="text-sm font-semibold text-zinc-600 hover:text-zinc-900">Volver a compras</Link></div>
-
-        <section className={`rounded-lg border p-5 sm:p-6 ${purchase.status === "VOIDED" ? "border-red-200 bg-red-50" : "border-zinc-200 bg-white"}`}><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs uppercase tracking-wide text-zinc-500">Estado</p><p className={`mt-1 text-xl font-bold ${purchase.status === "VOIDED" ? "text-red-900" : "text-zinc-950"}`}>{purchase.status === "VOIDED" ? "Anulada" : "Confirmada"}</p></div><div className="text-left sm:text-right"><p className="text-xs uppercase tracking-wide text-zinc-500">Total original</p><p className="mt-1 text-xl font-black tabular-nums">{money(purchase.total)}</p></div></div><dl className="mt-5 grid gap-4 border-t border-zinc-200 pt-5 text-sm sm:grid-cols-2 lg:grid-cols-3"><DetailRow label="Fecha de compra" value={date(purchase.purchase_date)} /><DetailRow label="Proveedor" value={purchase.supplier_name} /><DetailRow label="RUC" value={purchase.supplier_ruc ?? "—"} /><DetailRow label="Referencia" value={purchase.reference ?? "—"} /><DetailRow label="Registrada el" value={dateTime(purchase.created_at)} /><DetailRow label="Registrada por" value={purchase.created_by_name} /></dl></section>
-
-        {purchase.status === "VOIDED" ? <section className="mt-5 rounded-lg border border-red-200 bg-white p-5 sm:p-6"><h2 className="text-base font-semibold text-red-900">Auditoría de anulación</h2><dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2"><DetailRow label="Anulada el" value={purchase.voided_at ? dateTime(purchase.voided_at) : "—"} /><DetailRow label="Anulada por" value={purchase.voided_by_name} /><div className="sm:col-span-2"><dt className="text-sm text-zinc-500">Motivo</dt><dd className="mt-1 font-semibold">{purchase.void_reason ?? "—"}</dd></div></dl></section> : <VoidPurchaseForm purchaseId={purchase.id} initialClientKey={crypto.randomUUID()} />}
-
-        <section className="mt-5 rounded-lg border border-zinc-200 bg-white p-5 sm:p-6"><h2 className="text-base font-semibold">Productos comprados</h2>{purchase.items.length === 0 ? <p className="mt-4 text-sm text-zinc-500">No hay productos registrados.</p> : <div className="mt-4 overflow-x-auto"><table className="min-w-[700px] w-full text-left text-sm"><thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-500"><tr><th className="px-3 py-3 font-medium">Producto</th><th className="px-3 py-3 font-medium">Cantidad</th><th className="px-3 py-3 font-medium">Costo unitario</th><th className="px-3 py-3 font-medium">Subtotal</th></tr></thead><tbody>{purchase.items.map((item) => <tr className="border-b border-zinc-100 last:border-0" key={item.id}><td className="px-3 py-3 font-medium">{item.product_name}</td><td className="px-3 py-3 tabular-nums">{quantity(item)}</td><td className="px-3 py-3 tabular-nums">{money(item.unit_purchase_cost)}</td><td className="px-3 py-3 font-semibold tabular-nums">{money(item.line_subtotal)}</td></tr>)}</tbody></table></div>}<dl className="mt-5 flex max-w-md justify-between gap-4 border-t border-zinc-200 pt-5"><dt className="font-semibold">Total de compra</dt><dd className="font-black tabular-nums">{money(purchase.total)}</dd></dl></section>
-
-        <p className="mt-5 rounded-md bg-zinc-100 px-3 py-2 text-sm text-zinc-600">Esta compra agregó inventario y actualizó el costo de compra de los productos al momento de su registro.</p>
-      </main>
+    <div className="flex flex-col gap-6">
+      <Link href="/admin/purchases" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "w-fit -ml-3")}><ArrowLeft aria-hidden="true" />Volver a compras</Link>
+      <header><p className="text-sm font-medium text-primary">Inventario / Compras</p><h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Detalle de compra</h1><p className="mt-2 text-sm text-muted-foreground">Consulta histórica y read-only de la operación.</p></header>
+      <Card className={purchase.status === "VOIDED" ? "border-destructive/30" : undefined}><CardHeader><div className="flex flex-wrap items-start justify-between gap-4"><div><CardTitle className="flex items-center gap-2 text-base"><Package aria-hidden="true" className="size-4 text-primary" />Compra a {purchase.supplier_name}</CardTitle><CardDescription>{date(purchase.purchase_date)} · {purchase.reference ?? "Sin referencia"}</CardDescription></div><div className="flex items-center gap-3"><Badge variant={purchase.status === "VOIDED" ? "destructive" : "success"}>{statusLabels[purchase.status]}</Badge><span className="text-lg font-semibold tabular-nums">{money(purchase.total)}</span></div></div></CardHeader><CardContent><dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3"><DetailRow label="Proveedor" value={purchase.supplier_name} /><DetailRow label="RUC" value={purchase.supplier_ruc ?? "—"} /><DetailRow label="Registrada por" value={purchase.created_by_name} /><DetailRow label="Registrada el" value={dateTime(purchase.created_at)} /></dl></CardContent></Card>
+      {purchase.status === "VOIDED" ? <Card className="border-destructive/30"><CardHeader><CardTitle className="text-base text-destructive">Auditoría de anulación</CardTitle></CardHeader><CardContent><dl className="grid gap-4 text-sm sm:grid-cols-2"><DetailRow label="Anulada el" value={purchase.voided_at ? dateTime(purchase.voided_at) : "—"} /><DetailRow label="Anulada por" value={purchase.voided_by_name} /><div className="sm:col-span-2"><dt className="text-muted-foreground">Motivo</dt><dd className="mt-1 font-semibold">{purchase.void_reason ?? "—"}</dd></div></dl></CardContent></Card> : <VoidPurchaseForm purchaseId={purchase.id} initialClientKey={crypto.randomUUID()} />}
+      <Card><CardHeader><CardTitle className="text-base">Productos comprados</CardTitle><CardDescription>Las cantidades permanecen expresadas en unidades base.</CardDescription></CardHeader>{purchase.items.length === 0 ? <CardContent><p className="text-sm text-muted-foreground">No hay productos registrados.</p></CardContent> : <div className="overflow-x-auto"><Table className="min-w-[700px]"><TableHeader className="bg-muted/60"><TableRow className="hover:bg-transparent"><TableHead className="pl-4">Producto</TableHead><TableHead>Cantidad</TableHead><TableHead className="text-right">Costo unitario</TableHead><TableHead className="pr-4 text-right">Subtotal</TableHead></TableRow></TableHeader><TableBody>{purchase.items.map((item) => <TableRow key={item.id}><TableCell className="pl-4 font-medium">{item.product_name}</TableCell><TableCell className="tabular-nums">{quantity(item)}</TableCell><TableCell className="text-right tabular-nums text-muted-foreground">{money(item.unit_purchase_cost)}</TableCell><TableCell className="pr-4 text-right font-semibold tabular-nums">{money(item.line_subtotal)}</TableCell></TableRow>)}</TableBody></Table><dl className="flex max-w-md justify-between gap-4 border-t border-border p-4 sm:ml-auto"><dt className="font-semibold">Total de compra</dt><dd className="font-black tabular-nums">{money(purchase.total)}</dd></dl></div>}</Card>
+      <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">Esta compra agregó inventario y actualizó el costo de compra de los productos al momento de su registro.</p>
     </div>
   );
 }

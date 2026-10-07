@@ -1,4 +1,10 @@
 import Link from "next/link";
+import { CalendarDays, ChevronLeft, ChevronRight, Filter, ShoppingCart } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { requireAdmin } from "@/features/auth/session";
 import { listSales } from "@/features/sales-history/queries";
 import type { SalePaymentMethod, SaleStatus } from "@/features/sales-history/types";
@@ -37,34 +43,24 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
   const todayQuery = queryString({ from: today, to: today, method: history.filters.paymentMethod, status: history.filters.status });
 
   return (
-    <div className="flex flex-col bg-zinc-50 text-zinc-900">
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div><h1 className="text-lg font-semibold">Ventas</h1><p className="mt-1 text-sm text-zinc-500">Historial administrativo de ventas.</p></div>
-          <Link href="/pos" className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100">POS operativo</Link>
-        </div>
-
-        <form className="mb-5 flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-white p-4" method="get">
-          <label className="grid gap-1 text-sm"><span className="text-xs font-medium text-zinc-500">Desde</span><input className="rounded-md border border-zinc-300 px-3 py-2" type="date" name="from" defaultValue={history.filters.from} /></label>
-          <label className="grid gap-1 text-sm"><span className="text-xs font-medium text-zinc-500">Hasta</span><input className="rounded-md border border-zinc-300 px-3 py-2" type="date" name="to" defaultValue={history.filters.to} /></label>
-          <label className="grid gap-1 text-sm"><span className="text-xs font-medium text-zinc-500">Método</span><select className="rounded-md border border-zinc-300 px-3 py-2" name="method" defaultValue={history.filters.paymentMethod}><option value="">Todos</option><option value="CASH">Efectivo</option><option value="YAPE">Yape</option><option value="CREDIT">Fiado</option></select></label>
-          <label className="grid gap-1 text-sm"><span className="text-xs font-medium text-zinc-500">Estado</span><select className="rounded-md border border-zinc-300 px-3 py-2" name="status" defaultValue={history.filters.status}><option value="">Todos</option><option value="CONFIRMED">Confirmada</option><option value="VOIDED">Anulada</option></select></label>
-          <button className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-700" type="submit">Filtrar</button>
-          <Link className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50" href={todayQuery ? `/admin/sales?${todayQuery}` : "/admin/sales"}>Hoy</Link>
-          <Link className="px-2 py-2 text-sm font-semibold text-zinc-600 hover:text-zinc-900" href="/admin/sales">Limpiar</Link>
-        </form>
-
-        {history.rows.length === 0 ? <div className="rounded-lg border border-zinc-200 bg-white px-4 py-10 text-center text-zinc-500">No hay ventas registradas.</div> : (
-          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-            <table className="min-w-[950px] w-full text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-500"><tr><th className="px-4 py-3 font-medium">Fecha/hora</th><th className="px-4 py-3 font-medium">Vendedor</th><th className="px-4 py-3 font-medium">Método</th><th className="px-4 py-3 font-medium">Cliente</th><th className="px-4 py-3 font-medium">Total</th><th className="px-4 py-3 font-medium">Estado</th><th className="px-4 py-3 font-medium">Caja</th></tr></thead>
-              <tbody>{history.rows.map((row) => <tr className="border-b border-zinc-100 last:border-0" key={row.id}><td className="whitespace-nowrap px-4 py-3"><Link className="font-semibold hover:underline" href={`/admin/sales/${row.id}`}>{dateTime(row.created_at)}</Link></td><td className="px-4 py-3">{row.seller_name}</td><td className="px-4 py-3">{paymentLabels[row.payment_method]}</td><td className="px-4 py-3">{row.customer_name ?? "—"}</td><td className="px-4 py-3 font-semibold tabular-nums">{money(row.total)}</td><td className="px-4 py-3">{statusLabels[row.status]}</td><td className="px-4 py-3">{row.cash_session_status === "OPEN" ? "Abierta" : row.cash_session_status === "CLOSED" ? "Cerrada" : "Sin sesión de caja"}</td></tr>)}</tbody>
-            </table>
-          </div>
-        )}
-
-        {history.totalPages > 1 ? <nav className="mt-5 flex items-center justify-between text-sm" aria-label="Paginación de ventas"><span className="text-zinc-500">Página {history.page} de {history.totalPages}</span><div className="flex gap-2">{history.page > 1 ? <Link className="rounded-md border border-zinc-200 bg-white px-3 py-2 font-semibold hover:bg-zinc-50" href={`/admin/sales?${queryString({ ...filterValues, page: String(history.page - 1) })}`}>Anterior</Link> : null}{history.page < history.totalPages ? <Link className="rounded-md border border-zinc-200 bg-white px-3 py-2 font-semibold hover:bg-zinc-50" href={`/admin/sales?${queryString({ ...filterValues, page: String(history.page + 1) })}`}>Siguiente</Link> : null}</div></nav> : null}
-      </main>
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div><p className="text-sm font-medium text-primary">Ventas y control</p><h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Ventas</h1><p className="mt-2 text-sm text-muted-foreground">Historial administrativo de ventas confirmadas y anuladas.</p><p className="mt-2 text-sm text-muted-foreground">{history.total} registros históricos</p></div>
+        <Link href="/pos" className={cn(buttonVariants({ variant: "outline" }), "sm:mt-6")}><ShoppingCart aria-hidden="true" />POS operativo</Link>
+      </header>
+      <Card>
+        <CardHeader className="border-b border-border pb-4"><CardTitle className="flex items-center gap-2 text-base"><Filter aria-hidden="true" className="size-4 text-primary" />Filtros de ventas</CardTitle><CardDescription>Consulta el historial por periodo, método de pago o estado.</CardDescription>
+          <form className="flex flex-wrap items-end gap-3 pt-2" method="get">
+            <label className="grid min-w-40 gap-1 text-sm"><span className="text-xs font-medium text-muted-foreground">Desde</span><input className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" type="date" name="from" defaultValue={history.filters.from} /></label>
+            <label className="grid min-w-40 gap-1 text-sm"><span className="text-xs font-medium text-muted-foreground">Hasta</span><input className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" type="date" name="to" defaultValue={history.filters.to} /></label>
+            <label className="grid min-w-40 gap-1 text-sm"><span className="text-xs font-medium text-muted-foreground">Método</span><select className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" name="method" defaultValue={history.filters.paymentMethod}><option value="">Todos</option><option value="CASH">Efectivo</option><option value="YAPE">Yape</option><option value="CREDIT">Fiado</option></select></label>
+            <label className="grid min-w-40 gap-1 text-sm"><span className="text-xs font-medium text-muted-foreground">Estado</span><select className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" name="status" defaultValue={history.filters.status}><option value="">Todos</option><option value="CONFIRMED">Confirmada</option><option value="VOIDED">Anulada</option></select></label>
+            <Button type="submit">Filtrar</Button><Link className={cn(buttonVariants({ variant: "outline" }))} href={todayQuery ? `/admin/sales?${todayQuery}` : "/admin/sales"}><CalendarDays aria-hidden="true" />Hoy</Link><Link className={cn(buttonVariants({ variant: "ghost" }))} href="/admin/sales">Limpiar</Link>
+          </form>
+        </CardHeader>
+        {history.rows.length === 0 ? <p className="px-6 py-12 text-center text-sm text-muted-foreground">No hay ventas registradas con los filtros seleccionados.</p> : <div className="overflow-x-auto"><Table className="min-w-[1050px]"><TableHeader className="bg-muted/60"><TableRow className="hover:bg-transparent"><TableHead className="pl-4">Fecha/hora</TableHead><TableHead>Vendedor</TableHead><TableHead>Método</TableHead><TableHead>Cliente</TableHead><TableHead className="text-right">Total</TableHead><TableHead>Estado</TableHead><TableHead className="pr-4">Caja</TableHead></TableRow></TableHeader><TableBody>{history.rows.map((row) => <TableRow key={row.id}><TableCell className="whitespace-nowrap pl-4"><Link className="font-semibold text-foreground hover:text-primary hover:underline" href={`/admin/sales/${row.id}`}>{dateTime(row.created_at)}</Link></TableCell><TableCell>{row.seller_name}</TableCell><TableCell><Badge variant={row.payment_method === "CREDIT" ? "warning" : "info"}>{paymentLabels[row.payment_method]}</Badge></TableCell><TableCell className="text-muted-foreground">{row.customer_name ?? "—"}</TableCell><TableCell className="text-right font-semibold tabular-nums">{money(row.total)}</TableCell><TableCell><Badge variant={row.status === "VOIDED" ? "destructive" : "success"}>{statusLabels[row.status]}</Badge></TableCell><TableCell className="pr-4 text-muted-foreground">{row.cash_session_status === "OPEN" ? "Abierta" : row.cash_session_status === "CLOSED" ? "Cerrada" : "Sin sesión"}</TableCell></TableRow>)}</TableBody></Table></div>}
+      </Card>
+      {history.totalPages > 1 ? <nav className="flex flex-wrap items-center justify-between gap-3 text-sm" aria-label="Paginación de ventas"><span className="text-muted-foreground">Página {history.page} de {history.totalPages}</span><div className="flex gap-2">{history.page > 1 ? <Link className={cn(buttonVariants({ variant: "outline", size: "sm" }))} href={`/admin/sales?${queryString({ ...filterValues, page: String(history.page - 1) })}`}><ChevronLeft aria-hidden="true" />Anterior</Link> : null}{history.page < history.totalPages ? <Link className={cn(buttonVariants({ variant: "outline", size: "sm" }))} href={`/admin/sales?${queryString({ ...filterValues, page: String(history.page + 1) })}`}>Siguiente<ChevronRight aria-hidden="true" /></Link> : null}</div></nav> : null}
     </div>
   );
 }
