@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/features/auth/session";
 import {
   getProduct,
+  listProductInventoryMovements,
   listCategories,
 } from "@/features/catalog/products/queries";
 import {
@@ -11,6 +12,8 @@ import {
 } from "@/features/catalog/products/validation";
 import { ProductForm } from "@/app/admin/products/product-form";
 import { StockAdjustPanel } from "@/app/admin/products/[id]/stock-adjust-panel";
+import { LossPanel } from "@/app/admin/products/[id]/loss-panel";
+import { InventoryHistory } from "@/app/admin/products/[id]/inventory-history";
 
 export default async function EditProductPage({
   params,
@@ -26,6 +29,7 @@ export default async function EditProductPage({
   }
 
   const categories = await listCategories({ activeOnly: true });
+  const movements = await listProductInventoryMovements(product.id);
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
@@ -90,6 +94,16 @@ export default async function EditProductPage({
             currentStock={product.stock_quantity ?? "0"}
           />
         </div>
+
+        <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-6">
+          <LossPanel
+            productId={product.id}
+            unitType={product.unit_type}
+            currentStock={product.stock_quantity ?? "0"}
+          />
+        </div>
+
+        <InventoryHistory movements={movements} unitType={product.unit_type} />
       </main>
 
       <footer className="border-t border-zinc-200 bg-white">

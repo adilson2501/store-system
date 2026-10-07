@@ -11,6 +11,7 @@ export type SessionUser = {
   email: string;
   role: AppRole;
   displayName: string | null;
+  isActive: boolean;
 };
 
 export const getSession = cache(async (): Promise<SessionUser | null> => {
@@ -27,7 +28,7 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("role, display_name")
+    .select("role, display_name, is_active")
     .eq("id", user.id)
     .single();
 
@@ -43,6 +44,7 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
     email: user.email ?? "",
     role: profile.role as AppRole,
     displayName: profile.display_name,
+    isActive: profile.is_active,
   };
 });
 
@@ -51,6 +53,12 @@ export async function requireUser(): Promise<SessionUser> {
 
   if (!session) {
     redirect("/login");
+  }
+
+  if (!session.isActive) {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    redirect("/login?error=inactive");
   }
 
   return session;

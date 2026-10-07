@@ -3,6 +3,18 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { Category } from "@/features/catalog/categories/types";
 import type { Product } from "@/features/catalog/products/types";
+import type { InventoryMovementType } from "@/features/catalog/products/inventory-labels";
+
+export type InventoryMovement = {
+  id: string;
+  movement_type: InventoryMovementType;
+  quantity: string;
+  loss_reason: string | null;
+  note: string | null;
+  created_at: string;
+  created_by: string | null;
+  actor_name: string | null;
+};
 
 type ProductRow = {
   id: string;
@@ -136,4 +148,35 @@ export async function getProduct(id: string): Promise<Product | null> {
 
   const stockMap = await attachStock(supabase, [data as ProductRow]);
   return toProduct(data as ProductRow, stockMap);
+}
+
+export async function listProductInventoryMovements(productId: string): Promise<InventoryMovement[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("inventory_movements")
+    .select("id, movement_type, quantity, loss_reason, note, created_at, created_by")
+    .eq("product_id", productId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(`Failed to load inventory history: ${error.message}`);
+
+  const rows = (data ?? []) as Omit<InventoryMovement, "actor_name">[];
+  const actorIds = [...new Set(rows.map((row) => row.created_by).filter((id): id is string => Boolean(id)))];
+  const actorNames = new Map<string, string>();
+
+  if (actorIds.length > 0) {
+    const { data: profiles, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, display_name")
+      .in("id", actorIds);
+    if (profileError) throw new Error(`Failed to load inventory actors: ${profileError.message}`);
+    for (const profile of profiles ?? []) {
+      actorNames.set(profile.id, profile.display_name ?? profile.id);
+    }
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    actor_name: row.created_by ? actorNames.get(row.created_by) ?? row.created_by : null,
+  }));
 }

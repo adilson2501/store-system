@@ -12,9 +12,11 @@ export type Customer = {
   available_credit: string;
 };
 
+import type { CustomerLedgerMovementType } from "./ledger-labels";
+
 export type CustomerLedgerEntry = {
   id: string;
-  movement_type: "CREDIT_SALE" | "PAYMENT";
+  movement_type: CustomerLedgerMovementType;
   amount: string;
   sale_id: string | null;
   payment_method: "CASH" | "YAPE" | null;

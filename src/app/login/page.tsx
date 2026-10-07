@@ -5,7 +5,7 @@ import { LoginForm } from "@/app/login/login-form";
 export default async function LoginPage() {
   const session = await getSession();
 
-  if (session) {
+  if (session?.isActive) {
     redirect("/");
   }
 
