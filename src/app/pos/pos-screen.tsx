@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { OperationalHeader } from "@/app/pos/operational-header";
 import { confirmSale } from "@/features/pos/actions";
 import { getCurrentCashSessionState } from "@/features/cash/actions";
 import { getPosCustomer, searchPosCustomers } from "@/features/pos/customers";
@@ -939,23 +940,13 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
 
   if (!cashSessionOpen) {
     return (
-      <main className="min-h-screen bg-slate-100 text-slate-950">
-        <header className="border-b border-slate-200 bg-white">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-            <div>
-              <p className="text-lg font-bold tracking-tight">Punto de venta</p>
-              <p className="text-xs text-slate-500">{sellerName}</p>
-            </div>
-            <Link href="/cash" className="rounded-lg px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50">
-              Caja
-            </Link>
-          </div>
-        </header>
-        <section className="mx-auto flex min-h-[calc(100vh-73px)] max-w-xl items-center px-4 py-8">
+      <main className="min-h-screen bg-background text-foreground">
+        <OperationalHeader sellerName={sellerName} userRole={userRole} cashSessionOpen={cashSessionOpen} />
+        <section className="mx-auto flex min-h-[calc(100vh-86px)] max-w-xl items-center px-4 py-8">
           <div className="w-full rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
             <p className="text-2xl font-black">Caja cerrada</p>
             <p className="mt-3 text-slate-600">Debes abrir caja antes de realizar ventas.</p>
-            <Link href="/cash" className="mt-6 inline-flex min-h-14 items-center rounded-xl bg-blue-600 px-6 text-lg font-black text-white hover:bg-blue-700">
+            <Link href="/cash" className="mt-6 inline-flex min-h-14 items-center rounded-xl bg-primary px-6 text-lg font-black text-primary-foreground hover:bg-primary/90">
               Abrir caja
             </Link>
           </div>
@@ -965,20 +956,10 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-950">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <div>
-            <p className="text-lg font-bold tracking-tight">Punto de venta</p>
-            <p className="text-xs text-slate-500">{sellerName}</p>
-          </div>
-          <Link href="/" className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">
-            Salir del POS
-          </Link>
-        </div>
-      </header>
+    <main className="min-h-screen bg-background text-foreground">
+      <OperationalHeader sellerName={sellerName} userRole={userRole} cashSessionOpen={cashSessionOpen} />
 
-      <div className="mx-auto grid max-w-7xl gap-4 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="mx-auto grid max-w-[1600px] gap-4 p-3 sm:p-5 md:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] md:items-start">
         <section className="space-y-4">
           <form onSubmit={handleProductSubmit} className="rounded-2xl border border-blue-200 bg-white p-4 shadow-sm">
             <label htmlFor="product-input" className="mb-2 block text-sm font-semibold text-slate-700">
@@ -1143,7 +1124,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
           </section>
         </section>
 
-        <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-4">
+        <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:sticky md:top-4">
           <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Total</p>
           <p className="mt-1 text-5xl font-black tracking-tight">S/. {formatCents(totalCents)}</p>
 
