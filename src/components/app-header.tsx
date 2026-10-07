@@ -44,6 +44,9 @@ export function AppHeader({ user }: { user: SessionUser }) {
               <Link href="/admin/sales" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
                 Ventas
               </Link>
+              <Link href="/admin/reports" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
+                Reportes
+              </Link>
               <Link href="/admin/cash-sessions" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
                 Historial de cajas
               </Link>
