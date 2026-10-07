@@ -1,13 +1,6 @@
 import type { InventoryMovement } from "@/features/catalog/products/queries";
 import { formatQuantity } from "@/features/catalog/products/validation";
-
-const movementLabels: Record<InventoryMovement["movement_type"], string> = {
-  ENTRY: "Entrada",
-  SALE: "Venta",
-  LOSS: "Merma",
-  ADJUSTMENT: "Ajuste",
-  REVERSAL: "Reversión",
-};
+import { inventoryMovementLabels } from "@/features/catalog/products/inventory-labels";
 
 const reasonLabels: Record<string, string> = {
   EXPIRED: "Vencido",
@@ -34,7 +27,7 @@ export function InventoryHistory({ movements, unitType }: { movements: Inventory
             {movements.length === 0 ? <tr><td colSpan={5} className="px-6 py-6 text-zinc-500">Aún no hay movimientos de inventario.</td></tr> : movements.map((movement) => (
               <tr key={movement.id} className="border-b border-zinc-100">
                 <td className="whitespace-nowrap px-6 py-3 text-zinc-600">{new Date(movement.created_at).toLocaleString("es-PE")}</td>
-                <td className="px-6 py-3 font-medium">{movementLabels[movement.movement_type]}</td>
+                <td className="px-6 py-3 font-medium">{inventoryMovementLabels[movement.movement_type]}</td>
                 <td className={`px-6 py-3 font-semibold tabular-nums ${Number(movement.quantity) < 0 ? "text-red-700" : "text-zinc-900"}`}>{formatQuantity(movement.quantity, unitType)}</td>
                 <td className="px-6 py-3 text-zinc-600">{movement.loss_reason ? reasonLabels[movement.loss_reason] : null}{movement.loss_reason && movement.note ? " · " : ""}{movement.note ?? "—"}</td>
                 <td className="px-6 py-3 text-zinc-600">{movement.actor_name ?? "—"}</td>

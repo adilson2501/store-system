@@ -3,10 +3,11 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { Category } from "@/features/catalog/categories/types";
 import type { Product } from "@/features/catalog/products/types";
+import type { InventoryMovementType } from "@/features/catalog/products/inventory-labels";
 
 export type InventoryMovement = {
   id: string;
-  movement_type: "ENTRY" | "SALE" | "LOSS" | "ADJUSTMENT" | "REVERSAL";
+  movement_type: InventoryMovementType;
   quantity: string;
   loss_reason: string | null;
   note: string | null;
