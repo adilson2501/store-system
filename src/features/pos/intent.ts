@@ -165,7 +165,7 @@ export function isActiveSaleIntentState(state: SaleIntentState): boolean {
 export function canTransitionSaleIntent(from: SaleIntentState, to: SaleIntentState): boolean {
   if (from === "CONFIRMED" || from === "CONFLICT") return false;
   if (from === "DRAFT") return to === "SUBMITTING";
-  if (from === "SUBMITTING") return to === "CONFIRMED" || to === "FAILED" || to === "UNCERTAIN";
+  if (from === "SUBMITTING") return to === "CONFIRMED" || to === "FAILED" || to === "UNCERTAIN" || to === "CONFLICT";
   if (from === "UNCERTAIN") return to === "CONFIRMED" || to === "FAILED" || to === "CONFLICT";
   return false;
 }

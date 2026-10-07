@@ -31,7 +31,7 @@ export type ConfirmSaleInput = {
   client_key: string;
   cash_session_id: string;
   payment_method: PaymentMethod;
-  items: Array<{ product_id: string; quantity: string }>;
+  items: ReadonlyArray<Readonly<{ product_id: string; quantity: string }>>;
   amount_received: string | null;
   customer_id: string | null;
 };

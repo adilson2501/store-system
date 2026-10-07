@@ -14,5 +14,5 @@ export default async function PosPage() {
     console.error(error);
   }
 
-  return <PosScreen sellerName={user.displayName ?? user.email} initialCashSessionOpen={cashSessionOpen} initialCashSessionId={cashSessionId} />;
+  return <PosScreen userId={user.userId} userRole={user.role} sellerName={user.displayName ?? user.email} initialCashSessionOpen={cashSessionOpen} initialCashSessionId={cashSessionId} />;
 }

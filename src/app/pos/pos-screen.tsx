@@ -4,11 +4,33 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { confirmSale } from "@/features/pos/actions";
 import { getCurrentCashSessionState } from "@/features/cash/actions";
+import { getPosCustomer, searchPosCustomers } from "@/features/pos/customers";
 import { addProduct, removeProduct, updateQuantity } from "@/features/pos/cart";
 import { findByBarcode, searchProducts } from "@/features/pos/catalog";
-import { searchPosCustomers } from "@/features/pos/customers";
 import { parseSignedCents } from "@/features/customers/validation";
 import type { CartLine, PaymentMethod, PosCustomer, PosProduct } from "@/features/pos/types";
+import {
+  createSubmittedSnapshot,
+  type SaleIntent,
+  type SaleIntentCustomer,
+  type SaleIntentDraft,
+  type SaleIntentProduct,
+} from "@/features/pos/intent";
+import {
+  createDraftIntent,
+  clearDraftIntent,
+  cleanupConfirmedIntentForOwner,
+  discardConflictIntent,
+  discardFailedIntent,
+  deleteConfirmedIntent,
+  loadActiveIntentForOwner,
+  markSubmittingAsUncertain,
+  persistSubmittedIntent,
+  recordSaleIntentError,
+  replaceFailedIntentWithDraft,
+  transitionSaleIntent,
+  updateDraftIntent,
+} from "@/features/pos/persistence";
 import {
   decrementIntegerQuantity,
   formatCents,
@@ -20,82 +42,148 @@ import {
   sanitizeDecimalInput,
 } from "@/features/pos/money";
 
-function newClientKey() {
-  return crypto.randomUUID();
-}
-
-function toPosErrorMessage(raw: string): string {
+function toPosErrorMessage(raw: string, code?: string): string {
   const message = raw.replace(/^Error:\s*/i, "").trim();
 
-  if (message === "Authentication required") {
+  if (code === "AUTHENTICATION_REQUIRED" || message === "Authentication required") {
     return "Autenticación requerida.";
   }
-  if (message.includes("POS access requires")) {
+  if (code === "POS_ACCESS_FORBIDDEN" || message.includes("POS access requires")) {
     return "El acceso al POS requiere rol ADMIN o SELLER.";
   }
-  if (message === "Product not found") {
+  if (code === "PRODUCT_NOT_FOUND" || message === "Product not found") {
     return "Producto no encontrado.";
   }
-  if (message === "Product is inactive or unavailable") {
+  if (code === "PRODUCT_UNAVAILABLE" || message === "Product is inactive or unavailable") {
     return "Producto inactivo o no disponible.";
   }
   const stock = message.match(/^Insufficient stock for product (.+)$/);
-  if (stock) {
-    return `Stock insuficiente para ${stock[1]}.`;
+  if (code === "INSUFFICIENT_STOCK" || stock) {
+    return `Stock insuficiente para ${stock ? stock[1] : "este producto"}. Ajusta la cantidad o retíralo.`;
   }
-  if (message.includes("Quantity must be positive")) {
+  if (code === "QUANTITY_INVALID" || message.includes("Quantity must be positive")) {
     return "La cantidad debe ser positiva con máximo 3 decimales.";
   }
-  if (message.includes("UNIT products require whole-number")) {
+  if (code === "UNIT_QUANTITY_INVALID" || message.includes("UNIT products require whole-number")) {
     return "Los productos UNIT requieren cantidades enteras.";
   }
-  if (message.includes("Cash received must be at least")) {
+  if (code === "CASH_AMOUNT_INVALID" || message.includes("Cash received must be at least")) {
     return "El monto recibido debe ser igual o mayor al total.";
   }
-  if (message.includes("YAPE does not accept cash received")) {
+  if (code === "YAPE_AMOUNT_INVALID" || message.includes("YAPE does not accept cash received")) {
     return "YAPE no acepta monto en efectivo.";
   }
-  if (message.includes("Customer not found")) {
+  if (code === "CUSTOMER_NOT_FOUND" || message.includes("Customer not found")) {
     return "Cliente no encontrado. Solicita al administrador registrarlo.";
   }
-  if (message.includes("Customer is inactive")) {
+  if (code === "CUSTOMER_INACTIVE" || message.includes("Customer is inactive")) {
     return "El cliente está inactivo.";
   }
-  if (message.includes("Customer credit is disabled")) {
+  if (code === "CUSTOMER_CREDIT_DISABLED" || message.includes("Customer credit is disabled")) {
     return "El crédito está deshabilitado para este cliente.";
   }
-  if (message.includes("Credit limit exceeded")) {
+  if (code === "CREDIT_LIMIT_EXCEEDED" || message.includes("Credit limit exceeded")) {
     return "Crédito insuficiente para esta venta.";
   }
-  if (message.includes("Customer is required only for FIADO")) {
+  if (code === "CUSTOMER_REQUIREMENT_INVALID" || message.includes("Customer is required only for FIADO")) {
     return "Selecciona un cliente para la venta fiada.";
   }
-  if (message.includes("FIADO does not accept cash received")) {
+  if (code === "CREDIT_AMOUNT_INVALID" || message.includes("FIADO does not accept cash received")) {
     return "La venta fiada no usa monto recibido.";
   }
   if (message.includes("Customer access requires")) {
     return "No tienes acceso a clientes.";
   }
-  if (message.includes("Open cash session is required")) {
+  if (code === "OPEN_CASH_SESSION_REQUIRED" || message.includes("Open cash session is required")) {
     return "La caja está cerrada. Abre una caja para continuar.";
   }
-  if (message.includes("At least one sale item")) {
+  if (code === "CASH_SESSION_REQUIRED" || message.includes("Cash session is required")) {
+    return "Se requiere una caja abierta para continuar.";
+  }
+  if (code === "SALE_ITEMS_INVALID" || message.includes("At least one sale item")) {
     return "Agrega al menos un producto.";
   }
-  if (message.includes("Unsupported payment method")) {
+  if (code === "PAYMENT_METHOD_INVALID" || message.includes("Unsupported payment method")) {
     return "Método de pago no admitido.";
   }
-  if (message.includes("SALE_IDEMPOTENCY_CONFLICT")) {
-    return "Esta operación cambió y no puede volver a enviarse.";
+  if (code === "SALE_IDEMPOTENCY_CONFLICT" || message.includes("SALE_IDEMPOTENCY_CONFLICT")) {
+    return "No se puede recuperar esta venta automáticamente. Solicita revisión al administrador.";
   }
   if (message.includes("sales_client_key_unique_idx")) {
     return "Esta venta ya fue registrada.";
+  }
+  if (code === "UNKNOWN_SERVER_ERROR" || code === "UNKNOWN_RESULT") {
+    return "No pudimos verificar la venta. Revisa tu conexión e intenta nuevamente.";
   }
 
   return message;
 }
 
-export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessionId }: { sellerName: string; initialCashSessionOpen: boolean; initialCashSessionId: string | null }) {
+function cartFromIntent(items: SaleIntentProduct[]): CartLine[] {
+  return items.map((item) => ({
+    id: item.productId,
+    name: item.productName,
+    barcode: null,
+    unit_type: item.unitType,
+    selling_price: item.sellingPrice,
+    is_active: true,
+    stock_quantity: "",
+    quantity: item.quantity,
+  }));
+}
+
+function draftFromState(
+  cart: CartLine[],
+  paymentMethod: PaymentMethod,
+  amountReceived: string,
+  customer: SaleIntentCustomer | null,
+  cashSessionId: string | null,
+): SaleIntentDraft {
+  return {
+    cashSessionId,
+    paymentMethod,
+    amountReceived,
+    customer: customer ? { ...customer } : null,
+    items: cart.map((line) => ({
+      productId: line.id,
+      productName: line.name,
+      unitType: line.unit_type,
+      sellingPrice: line.selling_price,
+      quantity: line.quantity,
+    })),
+  };
+}
+
+function customerDisplay(customer: PosCustomer): SaleIntentCustomer {
+  return { id: customer.id, name: customer.name, phone: customer.phone };
+}
+
+function restoredIntentMessage(restored: SaleIntent): string {
+  switch (restored.state) {
+    case "DRAFT":
+      return "";
+    case "SUBMITTING":
+      return "Procesando venta...";
+    case "UNCERTAIN":
+      return restored.lastError
+        ? toPosErrorMessage(restored.lastError.message, restored.lastError.code)
+        : "Hay una venta pendiente de verificar.";
+    case "FAILED":
+      return restored.lastError
+        ? toPosErrorMessage(restored.lastError.message, restored.lastError.code)
+        : "No se pudo completar la venta.";
+    case "CONFLICT":
+      return "La operación requiere revisión administrativa.";
+    case "CONFIRMED":
+      return "";
+    default: {
+      const unexpectedState: never = restored.state;
+      throw new Error(`Unexpected sale intent state: ${String(unexpectedState)}`);
+    }
+  }
+}
+
+export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen, initialCashSessionId }: { userId: string; userRole: "ADMIN" | "SELLER"; sellerName: string; initialCashSessionOpen: boolean; initialCashSessionId: string | null }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PosProduct[]>([]);
@@ -103,7 +191,12 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
   const [amountReceived, setAmountReceived] = useState("");
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState<string | null>(null);
-  const [clientKey, setClientKey] = useState(newClientKey);
+  const [intent, setIntent] = useState<SaleIntent | null>(null);
+  const [hydrating, setHydrating] = useState(true);
+  const [hydrationError, setHydrationError] = useState("");
+  const [persistenceError, setPersistenceError] = useState("");
+  const [localBusy, setLocalBusy] = useState(false);
+  const [tabBlocked, setTabBlocked] = useState(false);
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerResults, setCustomerResults] = useState<PosCustomer[]>([]);
   const [customerSearched, setCustomerSearched] = useState(false);
@@ -111,10 +204,17 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
   const [customerLoading, setCustomerLoading] = useState(false);
   const [customerError, setCustomerError] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<PosCustomer | null>(null);
+  const [selectedCustomerDisplay, setSelectedCustomerDisplay] = useState<SaleIntentCustomer | null>(null);
+  const [customerFresh, setCustomerFresh] = useState(false);
   const [cashSessionOpen, setCashSessionOpen] = useState(initialCashSessionOpen);
   const [cashSessionId, setCashSessionId] = useState<string | null>(initialCashSessionId);
   const [isPending, startTransition] = useTransition();
   const productInputRef = useRef<HTMLInputElement>(null);
+  const tabIdRef = useRef(crypto.randomUUID());
+  const autosaveTimerRef = useRef<number | null>(null);
+  const autosaveGenerationRef = useRef(0);
+  const emptyCleanupKeyRef = useRef<string | null>(null);
+  const emptyCleanupPendingRef = useRef(false);
 
   const totalCents = cart.reduce((sum, line) => {
     const lineTotal = lineTotalCents(line.selling_price, line.quantity, line.unit_type);
@@ -126,10 +226,12 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
   const availableCreditCents =
     selectedCustomer === null ? null : parseSignedCents(selectedCustomer.available_credit);
   const customerUsable =
-    selectedCustomer !== null && selectedCustomer.active && selectedCustomer.credit_enabled;
+    customerFresh && selectedCustomer !== null && selectedCustomer.active && selectedCustomer.credit_enabled;
   const creditOk =
     customerUsable && availableCreditCents !== null && totalCents <= availableCreditCents;
+  const draftIntentKey = intent?.state === "DRAFT" ? intent.clientKey : null;
   const canConfirm =
+    !hydrating && !tabBlocked && !localBusy && intent?.state === "DRAFT" &&
     cart.length > 0 &&
     cart.every((line) => {
       const quantity = parseThousandths(line.quantity);
@@ -140,6 +242,173 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
       paymentMethod === "CREDIT" ||
       (exactCashPayment || (receivedCents !== null && receivedCents >= totalCents))) &&
     (paymentMethod !== "CREDIT" || creditOk);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function hydrate() {
+      try {
+        let currentCash: Awaited<ReturnType<typeof getCurrentCashSessionState>> | null = null;
+        try {
+          currentCash = await getCurrentCashSessionState();
+          if (!cancelled) {
+            setCashSessionOpen(currentCash.kind === "OPEN");
+            setCashSessionId(currentCash.kind === "OPEN" ? currentCash.session.session_id : null);
+          }
+        } catch (error) {
+          console.error(error);
+        }
+
+        await cleanupConfirmedIntentForOwner(userId);
+        let restored = await loadActiveIntentForOwner(userId);
+        if (restored?.state === "SUBMITTING") {
+          restored = await markSubmittingAsUncertain(userId, restored.clientKey);
+        }
+        if (cancelled) return;
+
+        if (!restored) {
+          setHydrating(false);
+          return;
+        }
+
+        if (restored.state === "DRAFT") {
+          let draftIntent = restored;
+          const currentSessionId = currentCash?.kind === "OPEN" ? currentCash.session.session_id : null;
+          if (currentSessionId && draftIntent.draft.cashSessionId !== currentSessionId) {
+            draftIntent = await updateDraftIntent(userId, draftIntent.clientKey, {
+              ...draftIntent.draft,
+              cashSessionId: currentSessionId,
+            });
+          }
+
+          setIntent(draftIntent);
+          setCart(cartFromIntent(draftIntent.draft.items));
+          setPaymentMethod(draftIntent.draft.paymentMethod);
+          setAmountReceived(draftIntent.draft.amountReceived);
+          setSelectedCustomerDisplay(draftIntent.draft.customer);
+          setCustomerFresh(false);
+
+          if (draftIntent.draft.customer) {
+            try {
+              const customer = await getPosCustomer(draftIntent.draft.customer.id);
+              if (!cancelled) {
+                setSelectedCustomer(customer);
+                setSelectedCustomerDisplay(customerDisplay(customer));
+                setCustomerFresh(true);
+              }
+            } catch (error) {
+              console.error(error);
+            }
+          }
+        } else {
+          setIntent(restored);
+          setMessage(restoredIntentMessage(restored));
+        }
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) setHydrationError("No se pudo cargar el estado seguro del punto de venta.");
+      } finally {
+        if (!cancelled) setHydrating(false);
+      }
+    }
+
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+
+    const channel = new BroadcastChannel("store-system-pos-tab");
+    const tabId = tabIdRef.current;
+    const send = (type: string, otherTabId: string) => channel.postMessage({ type, tabId: otherTabId });
+
+    function handleMessage(event: MessageEvent<{ type?: string; tabId?: string }>) {
+      const otherTabId = event.data?.tabId;
+      if (!otherTabId || otherTabId === tabId) return;
+
+      if (event.data.type === "POS_TAB_HELLO") {
+        if (otherTabId < tabId) setTabBlocked(true);
+        else send("POS_TAB_ACTIVE", tabId);
+      }
+      if (event.data.type === "POS_TAB_ACTIVE" && otherTabId < tabId) setTabBlocked(true);
+      if (event.data.type === "POS_TAB_RELEASE") setTabBlocked(false);
+    }
+
+    channel.addEventListener("message", handleMessage);
+    channel.postMessage({ type: "POS_TAB_HELLO", tabId });
+    const release = () => send("POS_TAB_RELEASE", tabId);
+    window.addEventListener("beforeunload", release);
+
+    return () => {
+      window.removeEventListener("beforeunload", release);
+      channel.removeEventListener("message", handleMessage);
+      channel.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (hydrating || !draftIntentKey) return;
+
+    if (cart.length === 0) {
+      const clientKey = draftIntentKey;
+      autosaveGenerationRef.current += 1;
+      if (autosaveTimerRef.current !== null) {
+        window.clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+      if (emptyCleanupKeyRef.current === clientKey) return;
+
+      emptyCleanupKeyRef.current = clientKey;
+      emptyCleanupPendingRef.current = false;
+      setLocalBusy(true);
+      void clearDraftIntent(userId, clientKey)
+        .then(() => {
+          if (emptyCleanupKeyRef.current !== clientKey) return;
+          emptyCleanupKeyRef.current = null;
+          emptyCleanupPendingRef.current = false;
+          setIntent((current) => current?.clientKey === clientKey ? null : current);
+          setPersistenceError("");
+          setLocalBusy(false);
+        })
+        .catch((error) => {
+          if (emptyCleanupKeyRef.current !== clientKey) return;
+          console.error(error);
+          setPersistenceError("No se pudo guardar la venta localmente.");
+        });
+      return;
+    }
+
+    if (localBusy || emptyCleanupKeyRef.current !== null) return;
+
+    const clientKey = draftIntentKey;
+    const draft = draftFromState(cart, paymentMethod, amountReceived, selectedCustomerDisplay, cashSessionId);
+    const generation = ++autosaveGenerationRef.current;
+    const timer = window.setTimeout(() => {
+      autosaveTimerRef.current = null;
+      if (generation !== autosaveGenerationRef.current || emptyCleanupKeyRef.current !== null) return;
+      void updateDraftIntent(userId, clientKey, draft)
+        .then((updated) => {
+          if (generation !== autosaveGenerationRef.current || emptyCleanupKeyRef.current !== null) return;
+          setIntent((current) => current?.clientKey === clientKey && current.state === "DRAFT" ? updated : current);
+          setPersistenceError("");
+        })
+        .catch((error) => {
+          if (generation !== autosaveGenerationRef.current || emptyCleanupKeyRef.current !== null) return;
+          console.error(error);
+          setPersistenceError("No se pudo guardar la venta localmente.");
+        });
+    }, 150);
+    autosaveTimerRef.current = timer;
+
+    return () => {
+      autosaveGenerationRef.current += 1;
+      window.clearTimeout(timer);
+      if (autosaveTimerRef.current === timer) autosaveTimerRef.current = null;
+    };
+  }, [userId, hydrating, localBusy, draftIntentKey, cart, paymentMethod, amountReceived, selectedCustomerDisplay, cashSessionId]);
 
   useEffect(() => {
     if (cashSessionOpen) productInputRef.current?.focus();
@@ -196,6 +465,8 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
 
   function resetCustomer(open = false) {
     setSelectedCustomer(null);
+    setSelectedCustomerDisplay(null);
+    setCustomerFresh(false);
     setCustomerQuery("");
     setCustomerResults([]);
     setCustomerSearched(false);
@@ -206,6 +477,8 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
 
   function selectCustomer(customer: PosCustomer) {
     setSelectedCustomer(customer);
+    setSelectedCustomerDisplay(customerDisplay(customer));
+    setCustomerFresh(true);
     setCustomerQuery("");
     setCustomerResults([]);
     setCustomerSearched(false);
@@ -220,14 +493,203 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
     window.setTimeout(() => productInputRef.current?.focus(), 0);
   }
 
-  function putProductInCart(product: PosProduct) {
+  async function correctFailedIntent() {
+    if (localBusy || isPending || tabBlocked || intent?.state !== "FAILED") return;
+
+    setLocalBusy(true);
+    try {
+      const currentCash = await getCurrentCashSessionState();
+      if (currentCash.kind !== "OPEN") {
+        setCashSessionOpen(false);
+        setCashSessionId(null);
+        setPersistenceError("Abre una caja para corregir esta venta.");
+        return;
+      }
+
+      const replacement = await replaceFailedIntentWithDraft(userId, intent.clientKey, {
+        ...intent.draft,
+        cashSessionId: currentCash.session.session_id,
+      });
+      setIntent(replacement);
+      setCart(cartFromIntent(replacement.draft.items));
+      setPaymentMethod(replacement.draft.paymentMethod);
+      setAmountReceived(replacement.draft.amountReceived);
+      setSelectedCustomerDisplay(replacement.draft.customer);
+      setSelectedCustomer(null);
+      setCustomerFresh(false);
+      setCashSessionOpen(true);
+      setCashSessionId(currentCash.session.session_id);
+      setMessage("");
+      setPersistenceError("");
+
+      if (replacement.draft.customer) {
+        try {
+          const customer = await getPosCustomer(replacement.draft.customer.id);
+          setSelectedCustomer(customer);
+          setSelectedCustomerDisplay(customerDisplay(customer));
+          setCustomerFresh(true);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    } catch (error) {
+      console.error(error);
+      setPersistenceError("No se pudo preparar la venta corregida de forma segura.");
+    } finally {
+      setLocalBusy(false);
+    }
+  }
+
+  async function discardFailed() {
+    if (localBusy || isPending || tabBlocked || intent?.state !== "FAILED") return;
+    if (!window.confirm("¿Descartar esta operación fallida?")) return;
+
+    setLocalBusy(true);
+    try {
+      await discardFailedIntent(userId, intent.clientKey);
+      setIntent(null);
+      setCart([]);
+      setPaymentMethod("CASH");
+      setAmountReceived("");
+      resetCustomer();
+      setMessage("");
+      setPersistenceError("");
+    } catch (error) {
+      console.error(error);
+      setPersistenceError("No se pudo descartar la operación. Intenta nuevamente.");
+    } finally {
+      setLocalBusy(false);
+    }
+  }
+
+  async function verifyUncertain() {
+    if (localBusy || isPending || tabBlocked || intent?.state !== "UNCERTAIN") return;
+    const pendingIntent = intent;
+    if (!pendingIntent.submitted) {
+      setPersistenceError("No se encontró la información segura de esta venta.");
+      return;
+    }
+
+    setLocalBusy(true);
+    try {
+      let result: Awaited<ReturnType<typeof confirmSale>>;
+      try {
+        result = await confirmSale(pendingIntent.submitted);
+      } catch (error) {
+        const raw = error instanceof Error ? error.message : "Unknown sale recovery failure";
+        try {
+          const updated = await recordSaleIntentError(userId, pendingIntent.clientKey, {
+            kind: "UNKNOWN",
+            code: "UNKNOWN_RESULT",
+            message: raw,
+          });
+          setIntent(updated);
+          setMessage("No pudimos verificar la venta. Revisa tu conexión e intenta nuevamente.");
+        } catch (persistenceFailure) {
+          console.error(persistenceFailure);
+          setPersistenceError("No se pudo actualizar el estado seguro de la venta.");
+        }
+        return;
+      }
+
+      if (!result.ok) {
+        try {
+          const updated = await recordSaleIntentError(userId, pendingIntent.clientKey, {
+            kind: result.kind,
+            code: result.code,
+            message: result.error,
+          });
+          setIntent(updated);
+          setMessage(toPosErrorMessage(result.error, result.code));
+        } catch (persistenceFailure) {
+          console.error(persistenceFailure);
+          setPersistenceError("No se pudo actualizar el estado seguro de la venta.");
+        }
+        return;
+      }
+
+      let confirmed: SaleIntent;
+      try {
+        confirmed = await transitionSaleIntent(userId, pendingIntent.clientKey, "CONFIRMED");
+        setIntent(confirmed);
+      } catch (error) {
+        console.error(error);
+        setMessage("La venta fue confirmada, pero no se pudo finalizar su registro local.");
+        return;
+      }
+
+      let localCleanupPending = false;
+      try {
+        await deleteConfirmedIntent(userId, confirmed.clientKey);
+      } catch (error) {
+        console.error(error);
+        localCleanupPending = true;
+        setPersistenceError("La venta fue confirmada, pero queda un registro local pendiente de limpieza.");
+      }
+
+      setIntent(null);
+      setSuccess(`Venta recuperada · ${formatMoney(result.sale.total)}`);
+      setCart([]);
+      setAmountReceived("");
+      setPaymentMethod("CASH");
+      resetCustomer();
+      setMessage("");
+      if (!localCleanupPending) setPersistenceError("");
+    } finally {
+      setLocalBusy(false);
+    }
+  }
+
+  async function discardConflict() {
+    if (userRole !== "ADMIN" || localBusy || isPending || tabBlocked || intent?.state !== "CONFLICT") return;
+    if (!window.confirm("Confirma que un administrador revisó esta operación antes de descartarla.")) return;
+
+    setLocalBusy(true);
+    try {
+      await discardConflictIntent(userId, intent.clientKey);
+      setIntent(null);
+      setCart([]);
+      setPaymentMethod("CASH");
+      setAmountReceived("");
+      resetCustomer();
+      setMessage("");
+      setPersistenceError("");
+    } catch (error) {
+      console.error(error);
+      setPersistenceError("No se pudo resolver la operación. Intenta nuevamente.");
+    } finally {
+      setLocalBusy(false);
+    }
+  }
+
+  async function putProductInCart(product: PosProduct) {
+    if (hydrating || tabBlocked || localBusy || emptyCleanupPendingRef.current || emptyCleanupKeyRef.current !== null || (intent !== null && intent.state !== "DRAFT")) return;
     if (!product.is_active) {
       setMessage("Producto inactivo.");
       keepScannerReady();
       return;
     }
 
-    setCart((current) => addProduct(current, product));
+    const nextCart = addProduct(cart, product);
+    if (!intent) {
+      setLocalBusy(true);
+      try {
+        const created = await createDraftIntent(
+          userId,
+          draftFromState(nextCart, paymentMethod, amountReceived, selectedCustomerDisplay, cashSessionId),
+        );
+        setIntent(created);
+        setCart(nextCart);
+        setPersistenceError("");
+      } catch (error) {
+        console.error(error);
+        setPersistenceError("No se pudo preparar la venta de forma segura. Intenta nuevamente.");
+      } finally {
+        setLocalBusy(false);
+      }
+    } else {
+      setCart(nextCart);
+    }
     setQuery("");
     setResults([]);
     setMessage("");
@@ -249,7 +711,7 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
         keepScannerReady();
         return;
       }
-      putProductInCart(product);
+      void putProductInCart(product);
     } catch {
       setMessage("No se pudo leer el código.");
       keepScannerReady();
@@ -262,26 +724,73 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
       setMessage("La caja está cerrada. Abre una caja para continuar.");
       return;
     }
+    if (!intent || intent.state !== "DRAFT") return;
 
-    const input = {
-      client_key: clientKey,
-      cash_session_id: cashSessionId,
-      payment_method: paymentMethod,
-      items: cart.map((line) => ({ product_id: line.id, quantity: line.quantity })),
-      amount_received: paymentMethod === "CASH"
-        ? exactCashPayment
-          ? formatCents(totalCents)
-          : amountReceived
-        : null,
-      customer_id: paymentMethod === "CREDIT" && selectedCustomer !== null ? selectedCustomer.id : null,
-    } as const;
+    const draftIntent = intent;
+    const effectiveAmountReceived = paymentMethod === "CASH"
+      ? exactCashPayment ? formatCents(totalCents) : amountReceived
+      : null;
 
+    setLocalBusy(true);
     startTransition(async () => {
-      const result = await confirmSale(input);
+      let submitted: Awaited<ReturnType<typeof createSubmittedSnapshot>>;
+      let currentDraft: SaleIntent;
+
+      // Phase A: persist the exact request before crossing the economic boundary.
+      try {
+        currentDraft = await updateDraftIntent(
+          userId,
+          draftIntent.clientKey,
+          draftFromState(cart, paymentMethod, amountReceived, selectedCustomerDisplay, cashSessionId),
+        );
+        submitted = createSubmittedSnapshot(currentDraft, effectiveAmountReceived);
+        const submitting = await persistSubmittedIntent(userId, currentDraft.clientKey, submitted);
+        setIntent(submitting);
+        setPersistenceError("");
+      } catch (error) {
+        console.error(error);
+        setPersistenceError("No se pudo preparar la venta de forma segura. Intenta nuevamente.");
+        setLocalBusy(false);
+        return;
+      }
+
+      // Phase B: only an exception while invoking confirmSale is economic UNKNOWN.
+      let result: Awaited<ReturnType<typeof confirmSale>>;
+      try {
+        result = await confirmSale(submitted);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown sale confirmation failure";
+        try {
+          const uncertain = await recordSaleIntentError(userId, draftIntent.clientKey, {
+            kind: "UNKNOWN",
+            code: "UNKNOWN_RESULT",
+            message,
+          });
+          setIntent(uncertain);
+        } catch (persistenceFailure) {
+          console.error(persistenceFailure);
+          setPersistenceError("No se pudo actualizar el estado seguro de la venta.");
+        }
+        setMessage("No pudimos comprobar todavía si la venta fue registrada.");
+        setLocalBusy(false);
+        return;
+      }
+
+      // Phase C: the returned result is authoritative and must not be reclassified by cleanup.
       if (!result.ok) {
-        const sessionRequired = result.error.includes("Open cash session is required");
-        setMessage(toPosErrorMessage(result.error));
-        if (sessionRequired) {
+        try {
+          const failed = await recordSaleIntentError(userId, currentDraft.clientKey, {
+            kind: result.kind,
+            code: result.code,
+            message: result.error,
+          });
+          setIntent(failed);
+          setMessage(toPosErrorMessage(result.error, result.code));
+        } catch (persistenceFailure) {
+          console.error(persistenceFailure);
+          setPersistenceError("No se pudo actualizar el estado seguro de la venta.");
+        }
+        if (result.code === "OPEN_CASH_SESSION_REQUIRED" || result.code === "CASH_SESSION_REQUIRED") {
           setCashSessionOpen(false);
           try {
             const current = await getCurrentCashSessionState();
@@ -292,22 +801,140 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
           }
         }
         productInputRef.current?.focus();
+        setLocalBusy(false);
         return;
       }
 
-      const total = formatMoney(result.sale.total);
-      setSuccess(`Venta confirmada · ${total}`);
-      setCart([]);
-      setAmountReceived("");
-      setPaymentMethod("CASH");
-      resetCustomer();
-      setMessage("");
-      setClientKey(newClientKey());
-      window.setTimeout(() => {
-        setSuccess(null);
-        productInputRef.current?.focus();
-      }, 1200);
+      // Phase D: local confirmation and cleanup cannot change the economic result.
+      let confirmed: SaleIntent;
+      try {
+        confirmed = await transitionSaleIntent(userId, currentDraft.clientKey, "CONFIRMED");
+        setIntent(confirmed);
+      } catch (error) {
+        console.error(error);
+        setMessage("La venta fue confirmada, pero no se pudo finalizar su registro local.");
+        setLocalBusy(false);
+        return;
+      }
+
+      try {
+        await deleteConfirmedIntent(userId, confirmed.clientKey);
+      } catch (error) {
+        console.error(error);
+        setPersistenceError("La venta fue confirmada, pero queda un registro local pendiente de limpieza.");
+      } finally {
+        const total = formatMoney(result.sale.total);
+        setIntent(null);
+        setSuccess(`Venta confirmada · ${total}`);
+        setCart([]);
+        setAmountReceived("");
+        setPaymentMethod("CASH");
+        resetCustomer();
+        setMessage("");
+        window.setTimeout(() => {
+          setSuccess(null);
+          productInputRef.current?.focus();
+        }, 1200);
+        setLocalBusy(false);
+      }
     });
+  }
+
+  if (hydrating) {
+    return <main className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-700"><p className="rounded-xl bg-white px-6 py-5 font-semibold shadow-sm">Cargando punto de venta…</p></main>;
+  }
+
+  if (hydrationError) {
+    return <main className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-700"><p className="rounded-xl bg-white px-6 py-5 font-semibold shadow-sm">{hydrationError}</p></main>;
+  }
+
+  if (tabBlocked) {
+    return <main className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-700"><p className="rounded-xl bg-white px-6 py-5 font-semibold shadow-sm">El punto de venta ya está abierto en otra pestaña.</p></main>;
+  }
+
+  if (intent?.state === "FAILED") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 text-slate-700">
+        <section className="w-full max-w-lg rounded-2xl border border-red-200 bg-white p-6 text-center shadow-sm sm:p-8">
+          <p className="text-2xl font-black text-slate-950">No se pudo completar la venta</p>
+          <p className="mt-4 rounded-xl bg-red-50 px-4 py-4 text-left font-semibold text-red-900">
+            {toPosErrorMessage(intent.lastError?.message ?? message, intent.lastError?.code)}
+          </p>
+          {persistenceError ? <p className="mt-3 text-sm font-semibold text-red-700">{persistenceError}</p> : null}
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              disabled={localBusy || isPending}
+              onClick={() => void correctFailedIntent()}
+              className="min-h-14 rounded-xl bg-blue-600 px-4 text-lg font-black text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {localBusy ? "Preparando…" : "Corregir venta"}
+            </button>
+            <button
+              type="button"
+              disabled={localBusy || isPending}
+              onClick={() => void discardFailed()}
+              className="min-h-14 rounded-xl border border-slate-300 px-4 text-lg font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Descartar operación
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (intent?.state === "UNCERTAIN") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 text-slate-700">
+        <section className="w-full max-w-lg rounded-2xl border border-amber-200 bg-white p-6 text-center shadow-sm sm:p-8">
+          <p className="text-2xl font-black text-slate-950">Hay una venta pendiente de verificar</p>
+          <p className="mt-4 rounded-xl bg-amber-50 px-4 py-4 text-left font-semibold text-amber-900">
+            {message || "No pudimos confirmar si la venta fue registrada. No inicies otra venta hasta verificar esta operación."}
+          </p>
+          {persistenceError ? <p className="mt-3 text-sm font-semibold text-red-700">{persistenceError}</p> : null}
+          <button
+            type="button"
+            disabled={localBusy || isPending}
+            onClick={() => void verifyUncertain()}
+            className="mt-6 min-h-14 w-full rounded-xl bg-blue-600 px-4 text-lg font-black text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {localBusy ? "Verificando venta…" : "Verificar venta"}
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  if (intent?.state === "CONFLICT") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 text-slate-700">
+        <section className="w-full max-w-lg rounded-2xl border border-red-200 bg-white p-6 text-center shadow-sm sm:p-8">
+          <p className="text-2xl font-black text-slate-950">No se puede recuperar esta venta automáticamente</p>
+          <p className="mt-4 rounded-xl bg-red-50 px-4 py-4 text-left font-semibold text-red-900">
+            La operación no coincide con el registro existente. Solicita revisión al administrador antes de continuar.
+          </p>
+          {persistenceError ? <p className="mt-3 text-sm font-semibold text-red-700">{persistenceError}</p> : null}
+          {userRole === "ADMIN" ? (
+            <button
+              type="button"
+              disabled={localBusy || isPending}
+              onClick={() => void discardConflict()}
+              className="mt-6 min-h-14 w-full rounded-xl border border-slate-300 px-4 text-lg font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {localBusy ? "Resolviendo…" : "Descartar después de revisar"}
+            </button>
+          ) : null}
+        </section>
+      </main>
+    );
+  }
+
+  if (intent?.state === "CONFIRMED") {
+    if (process.env.NODE_ENV !== "production") {
+      throw new Error("Confirmed sale intent must be cleaned before rendering");
+    }
+    return <main className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-700"><p className="rounded-xl bg-white px-6 py-5 text-center font-semibold shadow-sm">No se pudo cargar el punto de venta.</p></main>;
   }
 
   if (!cashSessionOpen) {
@@ -361,6 +988,7 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
               ref={productInputRef}
               id="product-input"
               value={query}
+              disabled={localBusy || isPending}
               onChange={(event) => {
                 setQuery(event.target.value);
                 if (!event.target.value.trim()) setResults([]);
@@ -378,9 +1006,9 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
                   <button
                     key={product.id}
                     type="button"
-                    disabled={!product.is_active}
+                    disabled={!product.is_active || localBusy || isPending}
                     onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => putProductInCart(product)}
+                    onClick={() => void putProductInCart(product)}
                     className="flex min-h-16 items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left hover:border-blue-400 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <span>
@@ -395,7 +1023,7 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
               </div>
             ) : null}
             <p className="mt-2 min-h-5 text-sm text-slate-500" aria-live="polite">
-              {message}
+              {persistenceError || message}
             </p>
           </form>
 
@@ -424,11 +1052,17 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
                             <button
                               type="button"
                               onMouseDown={(event) => event.preventDefault()}
-                              onClick={() =>
-                                setCart((current) =>
-                                  updateQuantity(current, line.id, decrementIntegerQuantity(line.quantity)),
-                                )
-                              }
+                              onClick={() => {
+                                if (!localBusy && !isPending) {
+                                  const nextCart = updateQuantity(cart, line.id, decrementIntegerQuantity(line.quantity));
+                                  if (nextCart.length === 0 && intent?.state === "DRAFT") {
+                                    emptyCleanupPendingRef.current = true;
+                                    setLocalBusy(true);
+                                  }
+                                  setCart(nextCart);
+                                }
+                              }}
+                              disabled={localBusy || isPending}
                               className="h-12 w-12 rounded-xl border border-slate-300 text-2xl font-bold hover:bg-slate-50"
                               aria-label={`Reducir ${line.name}`}
                             >
@@ -446,9 +1080,10 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
                                 type="text"
                                 inputMode="decimal"
                                 value={line.quantity}
+                                disabled={localBusy || isPending}
                                 onChange={(event) => {
                                   const next = sanitizeDecimalInput(event.target.value, 3);
-                                  setCart((current) => updateQuantity(current, line.id, next));
+                                  if (!localBusy && !isPending) setCart((current) => updateQuantity(current, line.id, next));
                                 }}
                                 autoComplete="off"
                                 placeholder="0.000"
@@ -463,11 +1098,12 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
                             <button
                               type="button"
                               onMouseDown={(event) => event.preventDefault()}
-                              onClick={() =>
-                                setCart((current) =>
-                                  updateQuantity(current, line.id, incrementIntegerQuantity(line.quantity)),
-                                )
-                              }
+                              onClick={() => {
+                                if (!localBusy && !isPending) {
+                                  setCart((current) => updateQuantity(current, line.id, incrementIntegerQuantity(line.quantity)));
+                                }
+                              }}
+                              disabled={localBusy || isPending}
                               className="h-12 w-12 rounded-xl border border-slate-300 text-2xl font-bold hover:bg-slate-50"
                               aria-label={`Aumentar ${line.name}`}
                             >
@@ -480,8 +1116,16 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
                           type="button"
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={() => {
-                            setCart((current) => removeProduct(current, line.id));
+                            if (!localBusy && !isPending) {
+                              const nextCart = removeProduct(cart, line.id);
+                              if (nextCart.length === 0 && intent?.state === "DRAFT") {
+                                emptyCleanupPendingRef.current = true;
+                                setLocalBusy(true);
+                              }
+                              setCart(nextCart);
+                            }
                           }}
+                          disabled={localBusy || isPending}
                           aria-label={`Quitar ${line.name} del carrito`}
                           title={`Quitar ${line.name} del carrito`}
                           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-red-600 hover:bg-red-50"
@@ -508,8 +1152,10 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
               <button
                 key={method}
                 type="button"
+                disabled={localBusy || isPending}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
+                  if (localBusy || isPending) return;
                   setPaymentMethod(method);
                   if (method === "YAPE") {
                     setAmountReceived("");
@@ -531,9 +1177,10 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
                  Buscar o seleccionar cliente
                </label>
                <input
-                 id="customer-search"
-                 type="search"
-                 value={customerQuery}
+                  id="customer-search"
+                  type="search"
+                  value={customerQuery}
+                  disabled={localBusy || isPending}
                  onChange={(event) => {
                    setCustomerQuery(event.target.value);
                    setCustomerOpen(true);
@@ -571,7 +1218,8 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
                    {customerResults.map((customer) => (
                     <button
                       key={customer.id}
-                      type="button"
+                       type="button"
+                       disabled={localBusy || isPending}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => selectCustomer(customer)}
                       className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white px-4 py-3 text-left hover:border-amber-400 hover:bg-amber-100"
@@ -594,16 +1242,17 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
                  </p>
                ) : null}
 
-              {selectedCustomer === null && !customerSearched ? (
-                <p className="mt-2 text-sm text-amber-900">Selecciona un cliente para vender fiado.</p>
-              ) : null}
+               {selectedCustomerDisplay === null && !customerSearched ? (
+                 <p className="mt-2 text-sm text-amber-900">Selecciona un cliente para vender fiado.</p>
+               ) : null}
 
-              {selectedCustomer !== null ? (
-                <div className="mt-3 rounded-xl border border-amber-300 bg-white p-3">
-                   <div className="flex items-center justify-between gap-3">
-                     <p className="min-w-0 truncate font-bold">{selectedCustomer.name}</p>
-                     <button
-                      type="button"
+               {selectedCustomerDisplay !== null ? (
+                 <div className="mt-3 rounded-xl border border-amber-300 bg-white p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="min-w-0 truncate font-bold">{selectedCustomerDisplay.name}</p>
+                      <button
+                       type="button"
+                       disabled={localBusy || isPending}
                       onMouseDown={(event) => event.preventDefault()}
                        onClick={() => resetCustomer(true)}
                       className="shrink-0 rounded-lg px-2 py-1 text-sm font-semibold text-amber-800 hover:bg-amber-50"
@@ -611,7 +1260,9 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
                       Cambiar
                     </button>
                    </div>
-                   <dl className="mt-2 space-y-1 text-sm">
+                    {selectedCustomer === null ? (
+                      <p className="mt-2 text-sm text-slate-600">Actualizando datos del cliente…</p>
+                    ) : <dl className="mt-2 space-y-1 text-sm">
                      <div className="flex items-center justify-between">
                        <dt className="text-slate-600">Nombre</dt>
                        <dd className="max-w-[65%] truncate font-semibold">{selectedCustomer.name}</dd>
@@ -628,20 +1279,24 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
                       <dt className="text-slate-600">Disponible</dt>
                       <dd className="font-bold">{formatMoney(selectedCustomer.available_credit)}</dd>
                     </div>
-                  </dl>
-                  {!selectedCustomer.active ? (
-                    <p className="mt-2 text-sm font-semibold text-red-700">El cliente está inactivo.</p>
-                  ) : null}
-                  {selectedCustomer.active && !selectedCustomer.credit_enabled ? (
+                   </dl>}
+                   {selectedCustomer === null ? null : (
+                     <>
+                   {!selectedCustomer.active ? (
+                     <p className="mt-2 text-sm font-semibold text-red-700">El cliente está inactivo.</p>
+                   ) : null}
+                   {selectedCustomer.active && !selectedCustomer.credit_enabled ? (
                     <p className="mt-2 text-sm font-semibold text-red-700">
-                      Crédito deshabilitado para este cliente.
-                    </p>
-                  ) : null}
-                  {customerUsable && availableCreditCents !== null && totalCents > availableCreditCents ? (
-                    <p className="mt-2 text-sm font-semibold text-red-700">
-                      Crédito insuficiente. Disponible: {formatMoney(selectedCustomer.available_credit)}
-                    </p>
-                  ) : null}
+                       Crédito deshabilitado para este cliente.
+                     </p>
+                    ) : null}
+                    {customerUsable && availableCreditCents !== null && totalCents > availableCreditCents ? (
+                     <p className="mt-2 text-sm font-semibold text-red-700">
+                       Crédito insuficiente. Disponible: {formatMoney(selectedCustomer.available_credit)}
+                     </p>
+                    ) : null}
+                     </>
+                   )}
                 </div>
               ) : null}
             </div>
@@ -658,8 +1313,9 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
                   type="text"
                   inputMode="decimal"
                   value={amountReceived}
+                  disabled={localBusy || isPending}
                   onChange={(event) =>
-                    setAmountReceived(sanitizeDecimalInput(event.target.value, 2))
+                    !localBusy && !isPending && setAmountReceived(sanitizeDecimalInput(event.target.value, 2))
                   }
                   autoComplete="off"
                   placeholder="0.00"
@@ -680,6 +1336,7 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
             <p className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">Verifica el pago en Yape y luego confirma.</p>
           ) : null}
 
+          {intent?.state === "SUBMITTING" ? <p className="mt-5 rounded-xl bg-blue-50 px-4 py-3 text-center font-bold text-blue-900" role="status">Procesando venta...</p> : null}
           {success ? <p className="mt-5 rounded-xl bg-emerald-100 px-4 py-3 text-center font-bold text-emerald-900" role="status">{success}</p> : null}
           <button
             type="button"
@@ -688,7 +1345,7 @@ export function PosScreen({ sellerName, initialCashSessionOpen, initialCashSessi
             disabled={!canConfirm || isPending}
             className="mt-5 min-h-16 w-full rounded-xl bg-emerald-600 px-4 text-xl font-black text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {isPending ? "Confirmando…" : "Confirmar venta"}
+            {isPending || intent?.state === "SUBMITTING" ? "Procesando…" : "Confirmar venta"}
           </button>
         </aside>
       </div>

@@ -153,7 +153,8 @@ export async function recordSaleIntentError(
 
   return localDb.transaction("rw", localDb.saleIntents, async () => {
     const intent = await requireOwnedIntent(ownerId, clientKey);
-    if (!canTransitionSaleIntent(intent.state, nextState)) {
+    const recordingAnotherUncertainFailure = intent.state === "UNCERTAIN" && nextState === "UNCERTAIN";
+    if (!recordingAnotherUncertainFailure && !canTransitionSaleIntent(intent.state, nextState)) {
       throw new Error(`Invalid sale intent error transition: ${intent.state} -> ${nextState}`);
     }
 
@@ -168,12 +169,78 @@ export async function recordSaleIntentError(
   });
 }
 
+export async function replaceFailedIntentWithDraft(
+  ownerId: string,
+  clientKey: string,
+  draft: SaleIntentDraft,
+): Promise<SaleIntent> {
+  return localDb.transaction("rw", localDb.saleIntents, async () => {
+    const intent = await requireOwnedIntent(ownerId, clientKey);
+    if (intent.state !== "FAILED" || intent.submitted === null) {
+      throw new Error("Only a failed submitted intent can be replaced");
+    }
+
+    const active = await findActiveForOwner(ownerId);
+    if (active && active.clientKey !== clientKey) throw new ActiveSaleIntentError();
+
+    const replacement = createSaleIntent(ownerId, draft);
+    await localDb.saleIntents.delete(clientKey);
+    await localDb.saleIntents.add(replacement);
+    return replacement;
+  });
+}
+
+export async function discardFailedIntent(ownerId: string, clientKey: string): Promise<void> {
+  await localDb.transaction("rw", localDb.saleIntents, async () => {
+    const intent = await requireOwnedIntent(ownerId, clientKey);
+    if (intent.state !== "FAILED") throw new Error("Only a failed intent can be discarded");
+    await localDb.saleIntents.delete(clientKey);
+  });
+}
+
+export async function discardConflictIntent(ownerId: string, clientKey: string): Promise<void> {
+  await localDb.transaction("rw", localDb.saleIntents, async () => {
+    const intent = await requireOwnedIntent(ownerId, clientKey);
+    if (intent.state !== "CONFLICT") throw new Error("Only a conflict intent can be discarded");
+    await localDb.saleIntents.delete(clientKey);
+  });
+}
+
+export async function cleanupConfirmedIntentForOwner(ownerId: string): Promise<void> {
+  await localDb.transaction("rw", localDb.saleIntents, async () => {
+    const confirmed = await localDb.saleIntents
+      .where("ownerId")
+      .equals(ownerId)
+      .filter((intent) => intent.state === "CONFIRMED")
+      .toArray();
+
+    if (confirmed.length > 1) throw new ActiveSaleIntentError();
+    if (confirmed[0]) await localDb.saleIntents.delete(confirmed[0].clientKey);
+  });
+}
+
 export async function deleteEmptyDraft(ownerId: string, clientKey: string): Promise<void> {
   await localDb.transaction("rw", localDb.saleIntents, async () => {
     const intent = await requireOwnedIntent(ownerId, clientKey);
     if (intent.state !== "DRAFT" || intent.submitted !== null || intent.draft.items.length > 0) {
       throw new Error("Only an empty draft can be deleted");
     }
+    await localDb.saleIntents.delete(clientKey);
+  });
+}
+
+export async function clearDraftIntent(ownerId: string, clientKey: string): Promise<void> {
+  await localDb.transaction("rw", localDb.saleIntents, async () => {
+    const intent = await requireOwnedIntent(ownerId, clientKey);
+    if (intent.state !== "DRAFT" || intent.submitted !== null) {
+      throw new Error("Only an unsubmitted draft can be intentionally cleared");
+    }
+
+    await localDb.saleIntents.put({
+      ...intent,
+      draft: cloneDraft({ ...intent.draft, items: [] }),
+      updatedAt: new Date().toISOString(),
+    });
     await localDb.saleIntents.delete(clientKey);
   });
 }
