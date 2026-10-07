@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { AppHeader } from "@/components/app-header";
 import { requireAdmin } from "@/features/auth/session";
 import { getPurchaseDetail } from "@/features/purchases/queries";
 import { VoidPurchaseForm } from "@/app/admin/purchases/[id]/void-purchase-form";
@@ -34,17 +33,16 @@ function DetailRow({ label, value, strong = false }: { label: string; value: str
 }
 
 export default async function PurchaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireAdmin();
+  await requireAdmin();
   const { id } = await params;
   const purchase = await getPurchaseDetail(id);
 
   if (!purchase) {
-    return <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900"><AppHeader user={user} /><main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8"><div className="rounded-lg border border-zinc-200 bg-white px-4 py-10 text-center"><p className="text-zinc-600">Compra no encontrada.</p><Link href="/admin/purchases" className="mt-4 inline-block text-sm font-semibold text-zinc-700 hover:text-zinc-900">Volver a compras</Link></div></main></div>;
+    return <div className="flex flex-col bg-zinc-50 text-zinc-900"><main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8"><div className="rounded-lg border border-zinc-200 bg-white px-4 py-10 text-center"><p className="text-zinc-600">Compra no encontrada.</p><Link href="/admin/purchases" className="mt-4 inline-block text-sm font-semibold text-zinc-700 hover:text-zinc-900">Volver a compras</Link></div></main></div>;
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader user={user} />
+    <div className="flex flex-col bg-zinc-50 text-zinc-900">
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-lg font-semibold">Detalle de compra</h1><p className="mt-1 text-sm text-zinc-500">Consulta administrativa read-only</p></div><Link href="/admin/purchases" className="text-sm font-semibold text-zinc-600 hover:text-zinc-900">Volver a compras</Link></div>
 

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { AppHeader } from "@/components/app-header";
 import { requireAdmin } from "@/features/auth/session";
 import { getSaleDetail } from "@/features/sales-history/queries";
 import type { SalePaymentMethod, SaleStatus } from "@/features/sales-history/types";
@@ -30,13 +29,12 @@ function DetailRow({ label, value, strong = false }: { label: string; value: str
 }
 
 export default async function SaleDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireAdmin();
+  await requireAdmin();
   const { id } = await params;
   const sale = await getSaleDetail(id);
   if (!sale) {
     return (
-      <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-        <AppHeader user={user} />
+      <div className="flex flex-col bg-zinc-50 text-zinc-900">
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
           <div className="rounded-lg border border-zinc-200 bg-white px-4 py-10 text-center">
             <p className="text-zinc-600">Venta no encontrada.</p>
@@ -50,8 +48,7 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
   const voided = sale.status === "VOIDED";
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader user={user} />
+    <div className="flex flex-col bg-zinc-50 text-zinc-900">
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-lg font-semibold">Detalle de venta</h1><p className="mt-1 text-sm text-zinc-500">Consulta administrativa read-only</p></div><Link href="/admin/sales" className="text-sm font-semibold text-zinc-600 hover:text-zinc-900">Volver a ventas</Link></div>
 

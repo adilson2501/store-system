@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { AppHeader } from "@/components/app-header";
 import { requireAdmin } from "@/features/auth/session";
 import { getSalesReport } from "@/features/sales-reports/queries";
 import { normalizeReportPeriod } from "@/features/sales-reports/periods";
@@ -13,7 +12,7 @@ function query(period: ReportPeriod): string {
 }
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const user = await requireAdmin();
+  await requireAdmin();
   const params = await searchParams;
   const requested = params.period === "week" || params.period === "month" || params.period === "custom" ? params.period : "today";
   const normalized = normalizeReportPeriod(requested, params.from, params.to);
@@ -21,8 +20,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const error = "error" in normalized ? normalized.error : report ? null : "No se pudo cargar el reporte de ventas. Intenta nuevamente.";
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader user={user} />
+    <div className="flex flex-col bg-zinc-50 text-zinc-900">
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
         <div className="mb-6"><h1 className="text-lg font-semibold">Reportes de ventas</h1><p className="mt-1 text-sm text-zinc-500">Resumen de ventas confirmadas. La ganancia bruta estimada no incluye gastos operativos.</p></div>
         <nav className="mb-5 flex flex-wrap gap-2" aria-label="Periodo del reporte">{(Object.keys(periodLabels) as ReportPeriod[]).map((period) => <Link key={period} href={period === "custom" ? query(period) : query(period)} className={`rounded-md border px-4 py-2 text-sm font-semibold ${requested === period ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"}`}>{periodLabels[period]}</Link>)}</nav>

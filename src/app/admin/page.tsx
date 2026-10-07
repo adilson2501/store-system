@@ -1,9 +1,8 @@
 import { requireAdmin } from "@/features/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { AppHeader } from "@/components/app-header";
 
 export default async function AdminPage() {
-  const user = await requireAdmin();
+  await requireAdmin();
 
   const supabase = await createClient();
   const { data: profiles, error } = await supabase
@@ -12,9 +11,7 @@ export default async function AdminPage() {
     .order("created_at", { ascending: true });
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader user={user} />
-
+    <div className="flex flex-col bg-zinc-50 text-zinc-900">
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
         <h1 className="text-lg font-semibold">Administración</h1>
         <p className="mt-1 text-sm text-zinc-500">

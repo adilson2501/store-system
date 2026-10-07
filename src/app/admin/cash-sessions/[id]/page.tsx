@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AppHeader } from "@/components/app-header";
 import { requireAdmin } from "@/features/auth/session";
 import { getCashSessionHistoryDetail } from "@/features/cash-history/queries";
 import { formatCents, parseCents } from "@/features/pos/money";
@@ -29,14 +28,13 @@ function DetailRow({ label, value, strong = false }: { label: string; value: str
 }
 
 export default async function CashSessionDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireAdmin();
+  await requireAdmin();
   const { id } = await params;
   const session = await getCashSessionHistoryDetail(id);
   if (!session) notFound();
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader user={user} />
+    <div className="flex flex-col bg-zinc-50 text-zinc-900">
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div><h1 className="text-lg font-semibold">Detalle de caja</h1><p className="mt-1 text-sm text-zinc-500">Consulta administrativa read-only</p></div>

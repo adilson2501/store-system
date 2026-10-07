@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/features/auth/session";
-import { AppHeader } from "@/components/app-header";
 import { CustomerForm } from "@/app/admin/customers/customer-form";
 import { CustomerPaymentForm } from "@/app/admin/customers/payment-form";
 import { getCustomer } from "@/features/customers/queries";
@@ -9,14 +8,14 @@ import { formatCustomerMoney, parseSignedCents } from "@/features/customers/vali
 import { customerLedgerMovementLabel } from "@/features/customers/ledger-labels";
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireAdmin();
+  await requireAdmin();
   const { id } = await params;
   const result = await getCustomer(id);
   if (!result) notFound();
   const { customer, ledger } = result;
   const debt = parseSignedCents(customer.current_debt);
 
-  return <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900"><AppHeader user={user} /><main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8"><div className="mb-6 flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-lg font-semibold">{customer.name}</h1><p className="mt-1 text-sm text-zinc-500">Detalle del cliente</p></div><Link href="/admin/customers" className="text-sm font-medium text-zinc-600 hover:text-zinc-900">Volver a clientes</Link></div>
+  return <div className="flex flex-col bg-zinc-50 text-zinc-900"><main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8"><div className="mb-6 flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-lg font-semibold">{customer.name}</h1><p className="mt-1 text-sm text-zinc-500">Detalle del cliente</p></div><Link href="/admin/customers" className="text-sm font-medium text-zinc-600 hover:text-zinc-900">Volver a clientes</Link></div>
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <section className="rounded-lg border border-zinc-200 bg-white p-6"><h2 className="mb-4 text-base font-semibold">Datos del cliente</h2><CustomerForm mode="edit" customerId={customer.id} defaultValues={{ name: customer.name, phone: customer.phone ?? "", notes: customer.notes ?? "", credit_limit: customer.credit_limit, credit_enabled: customer.credit_enabled, active: customer.active }} /></section>
       <div className="space-y-6"><section className="rounded-lg border border-zinc-200 bg-white p-6"><h2 className="text-base font-semibold">Crédito</h2><div className="mt-4 grid gap-3 sm:grid-cols-3"><div><p className="text-xs uppercase text-zinc-500">Deuda actual</p><p className="mt-1 text-xl font-bold">{formatCustomerMoney(debt)}</p></div><div><p className="text-xs uppercase text-zinc-500">Límite</p><p className="mt-1 text-xl font-bold">{formatCustomerMoney(parseSignedCents(customer.credit_limit))}</p></div><div><p className="text-xs uppercase text-zinc-500">Disponible</p><p className="mt-1 text-xl font-bold">{formatCustomerMoney(parseSignedCents(customer.available_credit))}</p></div></div></section>

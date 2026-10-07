@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { AppHeader } from "@/components/app-header";
 import { requireAdmin } from "@/features/auth/session";
 import { listSuppliers } from "@/features/suppliers/queries";
 import { SupplierStatusToggle } from "@/app/admin/suppliers/supplier-status-toggle";
@@ -11,15 +10,14 @@ function queryString(values: Record<string, string>) {
 }
 
 export default async function SuppliersPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
-  const user = await requireAdmin();
+  await requireAdmin();
   const params = await searchParams;
   const parsedPage = Number.parseInt(params.page ?? "1", 10);
   const history = await listSuppliers(Number.isNaN(parsedPage) ? 1 : parsedPage, params.q ?? "");
   const baseQuery = { q: history.search };
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader user={user} />
+    <div className="flex flex-col bg-zinc-50 text-zinc-900">
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div><h1 className="text-lg font-semibold">Proveedores</h1><p className="mt-1 text-sm text-zinc-500">Proveedores activos e históricos.</p></div>

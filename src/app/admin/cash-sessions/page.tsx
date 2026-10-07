@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { AppHeader } from "@/components/app-header";
 import { requireAdmin } from "@/features/auth/session";
 import { listCashSessions } from "@/features/cash-history/queries";
 import { formatCents, parseCents } from "@/features/pos/money";
@@ -24,14 +23,13 @@ function dateTime(value: string | null): string {
 }
 
 export default async function CashSessionsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
-  const user = await requireAdmin();
+  await requireAdmin();
   const params = await searchParams;
   const page = Number.parseInt(params.page ?? "1", 10);
   const history = await listCashSessions(Number.isNaN(page) ? 1 : page);
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader user={user} />
+    <div className="flex flex-col bg-zinc-50 text-zinc-900">
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>

@@ -1,17 +1,15 @@
 import Link from "next/link";
 import { requireAdmin } from "@/features/auth/session";
-import { AppHeader } from "@/components/app-header";
 import { listCustomers } from "@/features/customers/queries";
 import { formatCustomerMoney, parseSignedCents } from "@/features/customers/validation";
 
 export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const user = await requireAdmin();
+  await requireAdmin();
   const { q = "" } = await searchParams;
   const customers = await listCustomers(q);
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader user={user} />
+    <div className="flex flex-col bg-zinc-50 text-zinc-900">
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div><h1 className="text-lg font-semibold">Clientes</h1><p className="mt-1 text-sm text-zinc-500">Clientes y crédito fiado</p></div>

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { requireAdmin } from "@/features/auth/session";
-import { AppHeader } from "@/components/app-header";
 import { listProducts } from "@/features/catalog/products/queries";
 import {
   formatMoneyPen,
@@ -12,14 +11,12 @@ export default async function ProductsPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  const user = await requireAdmin();
+  await requireAdmin();
   const { q = "" } = await searchParams;
   const products = await listProducts(q);
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader user={user} />
-
+    <div className="flex flex-col bg-zinc-50 text-zinc-900">
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
