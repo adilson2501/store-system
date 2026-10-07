@@ -28,7 +28,7 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 ```
 
-Never add a service-role/secret key to this app. The application must not use one.
+`SUPABASE_SERVICE_ROLE_KEY` is required only for the server-side B2 user-management Auth Admin client. Never expose it through `NEXT_PUBLIC_*`, browser code, logs, or committed files.
 
 ## Supabase setup (manual)
 

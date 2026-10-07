@@ -32,6 +32,9 @@ export function AppHeader({ user }: { user: SessionUser }) {
               <Link href="/admin/customers" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
                 Administración
               </Link>
+              <Link href="/admin/users" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
+                Usuarios
+              </Link>
               <Link href="/admin/suppliers" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
                 Proveedores
               </Link>
@@ -46,6 +49,9 @@ export function AppHeader({ user }: { user: SessionUser }) {
               </Link>
             </>
           ) : null}
+          <Link href="/account/password" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
+            Contraseña
+          </Link>
           <form action={logout}>
             <button
               type="submit"
