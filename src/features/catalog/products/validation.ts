@@ -2,6 +2,25 @@ import type { UnitType } from "@/features/catalog/products/types";
 
 export type MoneyString = string;
 export type QuantityString = string;
+export type InventoryLossReason =
+  | "EXPIRED"
+  | "DAMAGED"
+  | "BROKEN"
+  | "SPOILED"
+  | "LOST"
+  | "OTHER";
+
+export const INVENTORY_LOSS_REASONS: ReadonlyArray<{
+  value: InventoryLossReason;
+  label: string;
+}> = [
+  { value: "EXPIRED", label: "Vencido" },
+  { value: "DAMAGED", label: "Dañado" },
+  { value: "BROKEN", label: "Roto" },
+  { value: "SPOILED", label: "Malogrado" },
+  { value: "LOST", label: "Perdido" },
+  { value: "OTHER", label: "Otro" },
+];
 
 const MONEY_RE = /^\d{1,10}(\.\d{1,2})?$/;
 const QUANTITY_RE = /^\d{1,10}(\.\d{1,3})?$/;
@@ -88,6 +107,50 @@ export function validateAdjustmentReason(
   }
 
   return { ok: true, value };
+}
+
+export function validateInventoryLossReason(
+  raw: unknown,
+): { ok: true; value: InventoryLossReason } | { ok: false; error: string } {
+  const value = String(raw ?? "").trim();
+  if (INVENTORY_LOSS_REASONS.some((reason) => reason.value === value)) {
+    return { ok: true, value: value as InventoryLossReason };
+  }
+  return { ok: false, error: "Selecciona un motivo válido para la merma." };
+}
+
+export function validateInventoryLossQuantity(
+  raw: unknown,
+  unitType: UnitType,
+): { ok: true; value: QuantityString } | { ok: false; error: string } {
+  const value = String(raw ?? "").trim();
+
+  if (!value) return { ok: false, error: "La cantidad de merma es obligatoria." };
+  if (!QUANTITY_RE.test(value)) {
+    return { ok: false, error: "La cantidad debe tener máximo 3 decimales." };
+  }
+  if (unitType === "UNIT" && !/^\d+(\.0{1,3})?$/.test(value)) {
+    return { ok: false, error: "Los productos UNIT requieren una cantidad entera." };
+  }
+  if (Number(value) <= 0) {
+    return { ok: false, error: "La cantidad de merma debe ser mayor que cero." };
+  }
+
+  return { ok: true, value };
+}
+
+export function validateInventoryLossNote(
+  raw: unknown,
+  reason: InventoryLossReason,
+): { ok: true; value: string | null } | { ok: false; error: string } {
+  const value = String(raw ?? "").trim();
+  if (value.length > 500) {
+    return { ok: false, error: "La nota admite máximo 500 caracteres." };
+  }
+  if (reason === "OTHER" && !value) {
+    return { ok: false, error: "La nota es obligatoria para el motivo Otro." };
+  }
+  return { ok: true, value: value || null };
 }
 
 export function normalizeOptionalBarcode(raw: unknown): string | null {
