@@ -112,6 +112,42 @@ describe("sale intent persistence", () => {
     expect((await loadActiveIntentForOwner("owner-1"))?.clientKey).toBe(replacement.clientKey);
   });
 
+  it("persists insufficient-stock metadata with a FAILED intent", async () => {
+    const { intent } = await submittedIntent();
+    const stock = {
+      code: "INSUFFICIENT_STOCK" as const,
+      version: 2 as const,
+      items: [
+        {
+          productId: "product-1",
+          productName: "Product 1",
+          unitType: "UNIT" as const,
+          requestedQuantity: "3.000",
+          availableStock: "2.000",
+        },
+        {
+          productId: "product-2",
+          productName: "Product 2",
+          unitType: "WEIGHT" as const,
+          requestedQuantity: "1.500",
+          availableStock: "0.750",
+        },
+      ],
+    };
+
+    await recordSaleIntentError("owner-1", intent.clientKey, {
+      kind: "DEFINITIVE",
+      code: "INSUFFICIENT_STOCK",
+      message: "Insufficient stock for product Product 1",
+      stock,
+    });
+
+    await expect(loadActiveIntentForOwner("owner-1")).resolves.toMatchObject({
+      state: "FAILED",
+      lastError: { code: "INSUFFICIENT_STOCK", stock },
+    });
+  });
+
   it("discards only the owned FAILED operation", async () => {
     const { intent } = await submittedIntent();
     await recordSaleIntentError("owner-1", intent.clientKey, {

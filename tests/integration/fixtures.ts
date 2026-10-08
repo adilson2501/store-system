@@ -8,8 +8,10 @@ export type FixtureOptions = {
   customer?: boolean;
   secondCustomer?: boolean;
   secondProduct?: boolean;
+  secondProductStock?: string;
   unitStock?: string;
   weight?: boolean;
+  weightStock?: string;
 };
 
 export type SaleFixture = {
@@ -100,24 +102,26 @@ export async function createSaleFixture(options: FixtureOptions = {}): Promise<S
         .single(),
     );
     productIds.push(product.id);
-    await requireSuccess(
-      await admin.from("inventory_movements").insert({
-        product_id: product.id,
-        movement_type: "ENTRY",
-        quantity: stock,
-        note: `A1.4b fixture ${namespace}`,
-        created_by: sellerId,
-      }),
-    );
+    if (Number(stock) > 0) {
+      await requireSuccess(
+        await admin.from("inventory_movements").insert({
+          product_id: product.id,
+          movement_type: "ENTRY",
+          quantity: stock,
+          note: `A1.4b fixture ${namespace}`,
+          created_by: sellerId,
+        }),
+      );
+    }
     return product.id;
   };
 
   const unitProductId = await createProduct("A1.4b UNIT", "UNIT", "5.00", options.unitStock ?? "20.000");
   const secondProductId = options.secondProduct
-    ? await createProduct("A1.4b UNIT 2", "UNIT", "5.00", "20.000")
+    ? await createProduct("A1.4b UNIT 2", "UNIT", "5.00", options.secondProductStock ?? "20.000")
     : null;
   const weightProductId = options.weight
-    ? await createProduct("A1.4b WEIGHT", "WEIGHT", "1.00", "1.000")
+    ? await createProduct("A1.4b WEIGHT", "WEIGHT", "1.00", options.weightStock ?? "1.000")
     : null;
 
   const customerIds: string[] = [];

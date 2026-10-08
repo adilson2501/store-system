@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ScanLine, Trash2 } from "lucide-react";
+import { ScanLine, Trash2, TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { OperationalHeader } from "@/app/pos/operational-header";
 import { confirmSale } from "@/features/pos/actions";
@@ -10,7 +10,9 @@ import { getPosCustomer, searchPosCustomers } from "@/features/pos/customers";
 import { addProduct, removeProduct, updateQuantity } from "@/features/pos/cart";
 import { findByBarcode, searchProducts } from "@/features/pos/catalog";
 import { parseSignedCents } from "@/features/customers/validation";
-import type { CartLine, PaymentMethod, PosCustomer, PosProduct } from "@/features/pos/types";
+import { formatQuantity } from "@/features/catalog/products/validation";
+import { formatInsufficientStockMessage, insufficientStockItems } from "@/features/pos/errors";
+import type { CartLine, InsufficientStockMetadata, PaymentMethod, PosCustomer, PosProduct } from "@/features/pos/types";
 import {
   createSubmittedSnapshot,
   type SaleIntent,
@@ -44,7 +46,7 @@ import {
   sanitizeDecimalInput,
 } from "@/features/pos/money";
 
-function toPosErrorMessage(raw: string, code?: string): string {
+function toPosErrorMessage(raw: string, code?: string, stockDetails?: InsufficientStockMetadata): string {
   const message = raw.replace(/^Error:\s*/i, "").trim();
 
   if (code === "AUTHENTICATION_REQUIRED" || message === "Authentication required") {
@@ -59,9 +61,12 @@ function toPosErrorMessage(raw: string, code?: string): string {
   if (code === "PRODUCT_UNAVAILABLE" || message === "Product is inactive or unavailable") {
     return "Producto inactivo o no disponible.";
   }
-  const stock = message.match(/^Insufficient stock for product (.+)$/);
-  if (code === "INSUFFICIENT_STOCK" || stock) {
-    return `Stock insuficiente para ${stock ? stock[1] : "este producto"}. Ajusta la cantidad o retíralo.`;
+  const stockMatch = message.match(/^Insufficient stock for product (.+)$/);
+  if (code === "INSUFFICIENT_STOCK" || stockMatch) {
+    if (stockDetails) {
+      return formatInsufficientStockMessage(stockDetails);
+    }
+    return `Stock insuficiente para ${stockMatch ? stockMatch[1] : "este producto"}. Ajusta la cantidad o retíralo.`;
   }
   if (code === "QUANTITY_INVALID" || message.includes("Quantity must be positive")) {
     return "La cantidad debe ser positiva con máximo 3 decimales.";
@@ -160,6 +165,10 @@ function customerDisplay(customer: PosCustomer): SaleIntentCustomer {
   return { id: customer.id, name: customer.name, phone: customer.phone };
 }
 
+function paymentMethodLabel(method: PaymentMethod): string {
+  return method === "CASH" ? "Efectivo" : method === "YAPE" ? "Yape" : "Fiado";
+}
+
 function restoredIntentMessage(restored: SaleIntent): string {
   switch (restored.state) {
     case "DRAFT":
@@ -168,11 +177,11 @@ function restoredIntentMessage(restored: SaleIntent): string {
       return "Procesando venta...";
     case "UNCERTAIN":
       return restored.lastError
-        ? toPosErrorMessage(restored.lastError.message, restored.lastError.code)
+        ? toPosErrorMessage(restored.lastError.message, restored.lastError.code, restored.lastError.stock)
         : "Hay una venta pendiente de verificar.";
     case "FAILED":
       return restored.lastError
-        ? toPosErrorMessage(restored.lastError.message, restored.lastError.code)
+        ? toPosErrorMessage(restored.lastError.message, restored.lastError.code, restored.lastError.stock)
         : "No se pudo completar la venta.";
     case "CONFLICT":
       return "La operación requiere revisión administrativa.";
@@ -194,6 +203,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
   const [amountReceived, setAmountReceived] = useState("");
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState<string | null>(null);
+  const [recoveredDraft, setRecoveredDraft] = useState(false);
   const [intent, setIntent] = useState<SaleIntent | null>(null);
   const [hydrating, setHydrating] = useState(true);
   const [hydrationError, setHydrationError] = useState("");
@@ -219,7 +229,9 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
   const autosaveTimerRef = useRef<number | null>(null);
   const autosaveGenerationRef = useRef(0);
   const emptyCleanupKeyRef = useRef<string | null>(null);
+  const emptyCleanupFailedKeyRef = useRef<string | null>(null);
   const emptyCleanupPendingRef = useRef(false);
+  const previousBlockingStateRef = useRef<"FAILED" | "UNCERTAIN" | "CONFLICT" | null>(null);
 
   const totalCents = cart.reduce((sum, line) => {
     const lineTotal = lineTotalCents(line.selling_price, line.quantity, line.unit_type);
@@ -272,6 +284,9 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
       paymentMethod === "CREDIT" ||
       (exactCashPayment || (receivedCents !== null && receivedCents >= totalCents))) &&
     (paymentMethod !== "CREDIT" || creditOk);
+  const blockingState = intent?.state === "FAILED" || intent?.state === "UNCERTAIN" || intent?.state === "CONFLICT"
+    ? intent.state
+    : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -312,6 +327,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
           }
 
           setIntent(draftIntent);
+          setRecoveredDraft(true);
           setCart(cartFromIntent(draftIntent.draft.items));
           setPaymentMethod(draftIntent.draft.paymentMethod);
           setAmountReceived(draftIntent.draft.amountReceived);
@@ -347,6 +363,13 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
       cancelled = true;
     };
   }, [userId]);
+
+  useEffect(() => {
+    if (blockingState && previousBlockingStateRef.current !== blockingState) {
+      window.scrollTo(0, 0);
+    }
+    previousBlockingStateRef.current = blockingState;
+  }, [blockingState]);
 
   useEffect(() => {
     if (typeof BroadcastChannel === "undefined") return;
@@ -390,6 +413,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
         autosaveTimerRef.current = null;
       }
       if (emptyCleanupKeyRef.current === clientKey) return;
+      if (emptyCleanupFailedKeyRef.current === clientKey) return;
 
       emptyCleanupKeyRef.current = clientKey;
       emptyCleanupPendingRef.current = false;
@@ -398,7 +422,9 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
         .then(() => {
           if (emptyCleanupKeyRef.current !== clientKey) return;
           emptyCleanupKeyRef.current = null;
+          emptyCleanupFailedKeyRef.current = null;
           emptyCleanupPendingRef.current = false;
+          setRecoveredDraft(false);
           setIntent((current) => current?.clientKey === clientKey ? null : current);
           setPersistenceError("");
           setLocalBusy(false);
@@ -407,6 +433,10 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
           if (emptyCleanupKeyRef.current !== clientKey) return;
           console.error(error);
           setPersistenceError("No se pudo guardar la venta localmente.");
+          emptyCleanupKeyRef.current = null;
+          emptyCleanupFailedKeyRef.current = clientKey;
+          emptyCleanupPendingRef.current = false;
+          setLocalBusy(false);
         });
       return;
     }
@@ -576,6 +606,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
       setCashSessionId(currentCash.session.session_id);
       setMessage("");
       setPersistenceError("");
+      setRecoveredDraft(false);
 
       if (replacement.draft.customer) {
         try {
@@ -609,6 +640,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
       resetCustomer();
       setMessage("");
       setPersistenceError("");
+      setRecoveredDraft(false);
     } catch (error) {
       console.error(error);
       setPersistenceError("No se pudo descartar la operación. Intenta nuevamente.");
@@ -653,9 +685,10 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
             kind: result.kind,
             code: result.code,
             message: result.error,
+            stock: result.stock,
           });
           setIntent(updated);
-          setMessage(toPosErrorMessage(result.error, result.code));
+          setMessage(toPosErrorMessage(result.error, result.code, result.stock));
         } catch (persistenceFailure) {
           console.error(persistenceFailure);
           setPersistenceError("No se pudo actualizar el estado seguro de la venta.");
@@ -689,7 +722,9 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
       setPaymentMethod("CASH");
       resetCustomer();
       setMessage("");
+      setRecoveredDraft(false);
       if (!localCleanupPending) setPersistenceError("");
+      window.setTimeout(() => setSuccess(null), 2500);
     } finally {
       setLocalBusy(false);
     }
@@ -709,6 +744,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
       resetCustomer();
       setMessage("");
       setPersistenceError("");
+      setRecoveredDraft(false);
     } catch (error) {
       console.error(error);
       setPersistenceError("No se pudo resolver la operación. Intenta nuevamente.");
@@ -725,6 +761,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
       return;
     }
 
+    emptyCleanupFailedKeyRef.current = null;
     const nextCart = addProduct(cart, product);
     if (!intent) {
       setLocalBusy(true);
@@ -840,9 +877,10 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
             kind: result.kind,
             code: result.code,
             message: result.error,
+            stock: result.stock,
           });
           setIntent(failed);
-          setMessage(toPosErrorMessage(result.error, result.code));
+          setMessage(toPosErrorMessage(result.error, result.code, result.stock));
         } catch (persistenceFailure) {
           console.error(persistenceFailure);
           setPersistenceError("No se pudo actualizar el estado seguro de la venta.");
@@ -887,8 +925,9 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
         setAmountReceived("");
         setPaymentMethod("CASH");
         resetCustomer();
+        setRecoveredDraft(false);
         setMessage("");
-        window.setTimeout(() => setSuccess(null), 1200);
+        window.setTimeout(() => setSuccess(null), 2500);
         requestScannerFocus();
         setLocalBusy(false);
       }
@@ -908,22 +947,60 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
   }
 
   if (intent?.state === "FAILED") {
+    const stockDetails = intent.lastError?.code === "INSUFFICIENT_STOCK" ? intent.lastError.stock : undefined;
+    const shortageItems = stockDetails ? insufficientStockItems(stockDetails) : [];
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 text-slate-700">
-        <section className="w-full max-w-lg rounded-2xl border border-red-200 bg-white p-6 text-center shadow-sm sm:p-8">
-          <p className="text-2xl font-black text-slate-950">No se pudo completar la venta</p>
-          <p className="mt-4 rounded-xl bg-red-50 px-4 py-4 text-left font-semibold text-red-900">
-            {toPosErrorMessage(intent.lastError?.message ?? message, intent.lastError?.code)}
-          </p>
+      <main className="flex min-h-screen items-start justify-center bg-slate-100 px-3 py-3 text-slate-700 sm:items-center sm:px-4 sm:py-4">
+        <section className="w-full max-w-2xl rounded-2xl border border-red-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex items-start gap-2">
+            <TriangleAlert aria-hidden="true" className="mt-1 size-7 shrink-0 text-red-600" />
+            <div>
+              <p className="text-xl font-black text-slate-950 sm:text-2xl">No se pudo completar la venta</p>
+              {shortageItems.length > 0 ? <p className="text-xs font-black uppercase tracking-[0.16em] text-red-700">Stock insuficiente</p> : null}
+            </div>
+          </div>
+          {shortageItems.length > 0 ? (
+            <div className="mt-4 space-y-2" aria-label="Productos con stock insuficiente">
+              {shortageItems.map((item) => {
+                const available = formatQuantity(item.availableStock, item.unitType);
+                const availableUnit = item.unitType === "WEIGHT" ? "kg" : available === "1" ? "unidad" : "unidades";
+                const requested = item.requestedQuantity ? formatQuantity(item.requestedQuantity, item.unitType) : null;
+                const requestedUnit = item.unitType === "WEIGHT" ? "kg" : requested === "1" ? "unidad" : "unidades";
+                return (
+                  <div key={item.productId} className="rounded-xl border border-red-200 bg-red-50/70 px-3 py-3">
+                    <p className="text-base font-black text-slate-950 sm:text-lg">{item.productName}</p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {requested ? (
+                        <div className="rounded-lg bg-white/80 px-2.5 py-1.5">
+                          <p className="text-xs font-black uppercase tracking-wide text-slate-500">Solicitado</p>
+                          <p className="mt-0.5 whitespace-nowrap text-lg font-bold tabular-nums text-slate-800 sm:text-xl">{requested} {requestedUnit}</p>
+                        </div>
+                      ) : null}
+                      <div className={`${requested ? "" : "col-span-2"} rounded-lg border-2 border-red-300 bg-white px-2.5 py-1.5`}>
+                        <p className="text-xs font-black uppercase tracking-wide text-red-700">Disponible</p>
+                        <p className="mt-0.5 whitespace-nowrap text-lg font-black tabular-nums text-red-800 sm:text-xl">{available} {availableUnit}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <p className="pt-0.5 text-sm font-semibold text-slate-600">Ajusta las cantidades o retira los productos antes de volver a intentarlo.</p>
+            </div>
+          ) : (
+            <p className="mt-4 rounded-xl bg-red-50 px-4 py-4 text-left font-semibold text-red-900">
+              {toPosErrorMessage(intent.lastError?.message ?? message, intent.lastError?.code, intent.lastError?.stock)}
+            </p>
+          )}
+          {shortageItems.length === 0 ? <p className="mt-3 text-left text-sm text-slate-600">La venta no quedó registrada. Corrige los datos para intentarlo con una nueva operación o descarta esta operación si ya no corresponde.</p> : null}
           {persistenceError ? <p className="mt-3 text-sm font-semibold text-red-700">{persistenceError}</p> : null}
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
             <button
               type="button"
               disabled={localBusy || isPending}
               onClick={() => void correctFailedIntent()}
               className="min-h-14 rounded-xl bg-blue-600 px-4 text-lg font-black text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              {localBusy ? "Preparando…" : "Corregir venta"}
+              {localBusy ? "Preparando…" : "Corregir y reintentar"}
             </button>
             <button
               type="button"
@@ -931,7 +1008,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
               onClick={() => void discardFailed()}
               className="min-h-14 rounded-xl border border-slate-300 px-4 text-lg font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Descartar operación
+              Descartar sin registrar
             </button>
           </div>
         </section>
@@ -945,8 +1022,14 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
         <section className="w-full max-w-lg rounded-2xl border border-amber-200 bg-white p-6 text-center shadow-sm sm:p-8">
           <p className="text-2xl font-black text-slate-950">Hay una venta pendiente de verificar</p>
           <p className="mt-4 rounded-xl bg-amber-50 px-4 py-4 text-left font-semibold text-amber-900">
-            {message || "No pudimos confirmar si la venta fue registrada. No inicies otra venta hasta verificar esta operación."}
+            No sabemos si esta venta fue registrada. No inicies otra venta hasta verificarla o reintentarla.
           </p>
+          {intent.submitted ? (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm text-slate-700">
+              <p className="font-bold text-slate-900">Operación guardada</p>
+              <p className="mt-1">{paymentMethodLabel(intent.submitted.payment_method)} · {intent.submitted.items.length} {intent.submitted.items.length === 1 ? "línea" : "líneas"}{intent.draft.customer ? ` · ${intent.draft.customer.name}` : ""}</p>
+            </div>
+          ) : null}
           {persistenceError ? <p className="mt-3 text-sm font-semibold text-red-700">{persistenceError}</p> : null}
           <button
             type="button"
@@ -954,7 +1037,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
             onClick={() => void verifyUncertain()}
             className="mt-6 min-h-14 w-full rounded-xl bg-blue-600 px-4 text-lg font-black text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {localBusy ? "Verificando venta…" : "Verificar venta"}
+            {localBusy ? "Verificando venta…" : "Verificar o reintentar"}
           </button>
         </section>
       </main>
@@ -1013,6 +1096,17 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
     <main className="min-h-screen bg-background text-foreground">
       <OperationalHeader sellerName={sellerName} userRole={userRole} cashSessionOpen={cashSessionOpen} />
 
+      {recoveredDraft ? (
+        <div className="mx-auto max-w-[1600px] px-3 pt-3 sm:px-5">
+          <p className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-900">Venta recuperada de forma segura. Revisa los datos antes de confirmar.</p>
+        </div>
+      ) : null}
+      {persistenceError ? (
+        <div className="mx-auto max-w-[1600px] px-3 pt-3 sm:px-5">
+          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900"><span className="font-black">Problema al guardar localmente:</span> {persistenceError}</p>
+        </div>
+      ) : null}
+
       <div className="mx-auto grid max-w-[1600px] gap-4 p-3 sm:p-5 md:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] md:items-start">
         <section className="space-y-4">
           <form onSubmit={handleProductSubmit} className="rounded-2xl border border-blue-200 bg-white p-3 shadow-sm sm:p-4">
@@ -1067,7 +1161,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
               </div>
             ) : null}
             <p className="mt-2 min-h-5 text-sm text-slate-500" aria-live="polite">
-              {persistenceError || message || (searching ? "Buscando..." : query.trim() && results.length === 0 ? "No se encontró el producto." : "")}
+              {message || (searching ? "Buscando..." : query.trim() && results.length === 0 ? "No se encontró el producto." : "")}
             </p>
           </form>
 
@@ -1191,7 +1285,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-500">Pago</p>
             <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
-              {paymentMethod === "CASH" ? "Efectivo" : paymentMethod === "YAPE" ? "Yape" : "Fiado"}
+              {paymentMethodLabel(paymentMethod)}
             </span>
           </div>
 
