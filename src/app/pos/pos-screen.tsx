@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ScanLine, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { OperationalHeader } from "@/app/pos/operational-header";
 import { confirmSale } from "@/features/pos/actions";
@@ -188,6 +189,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PosProduct[]>([]);
+  const [searching, setSearching] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [amountReceived, setAmountReceived] = useState("");
   const [message, setMessage] = useState("");
@@ -438,9 +440,15 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
     const timer = window.setTimeout(async () => {
       try {
         const products = await searchProducts(term);
-        if (!cancelled) setResults(products);
+        if (!cancelled) {
+          setResults(products);
+          setSearching(false);
+        }
       } catch {
-        if (!cancelled) setMessage("No se pudo buscar productos.");
+        if (!cancelled) {
+          setMessage("No se pudo buscar productos.");
+          setSearching(false);
+        }
       }
     }, 150);
 
@@ -511,6 +519,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
   function keepScannerReady() {
     setQuery("");
     setResults([]);
+    setSearching(false);
     requestScannerFocus();
   }
 
@@ -683,11 +692,11 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
     }
   }
 
-  async function putProductInCart(product: PosProduct) {
+  async function putProductInCart(product: PosProduct, refocusScanner = true) {
     if (hydrating || tabBlocked || localBusy || emptyCleanupPendingRef.current || emptyCleanupKeyRef.current !== null || (intent !== null && intent.state !== "DRAFT")) return;
     if (!product.is_active) {
       setMessage("Producto inactivo.");
-      keepScannerReady();
+      if (refocusScanner) keepScannerReady();
       return;
     }
 
@@ -713,8 +722,9 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
     }
     setQuery("");
     setResults([]);
+    setSearching(false);
     setMessage("");
-    keepScannerReady();
+    if (refocusScanner) keepScannerReady();
   }
 
   async function handleProductSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -724,6 +734,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
 
     setQuery("");
     setResults([]);
+    setSearching(false);
 
     try {
       const product = await findByBarcode(value);
@@ -979,38 +990,47 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
 
       <div className="mx-auto grid max-w-[1600px] gap-4 p-3 sm:p-5 md:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] md:items-start">
         <section className="space-y-4">
-          <form onSubmit={handleProductSubmit} className="rounded-2xl border border-blue-200 bg-white p-4 shadow-sm">
-            <label htmlFor="product-input" className="mb-2 block text-sm font-semibold text-slate-700">
-              Buscar o escanear producto
-            </label>
+          <form onSubmit={handleProductSubmit} className="rounded-2xl border border-blue-200 bg-white p-3 shadow-sm sm:p-4">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <label htmlFor="product-input" className="block text-sm font-bold text-slate-800">
+                Buscar o escanear producto
+              </label>
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">
+                <ScanLine aria-hidden="true" className="size-3.5" />
+                Escáner o texto
+              </span>
+            </div>
             <input
               ref={productInputRef}
               id="product-input"
               value={query}
               disabled={localBusy || isPending}
               onChange={(event) => {
-                setQuery(event.target.value);
-                if (!event.target.value.trim()) setResults([]);
+                const nextQuery = event.target.value;
+                setQuery(nextQuery);
+                setMessage("");
+                setResults([]);
+                setSearching(Boolean(nextQuery.trim()));
               }}
               autoComplete="off"
               autoCapitalize="off"
               spellCheck={false}
               autoFocus
-              placeholder="Escanea un código o busca un producto"
-              className="h-14 w-full rounded-xl border-2 border-blue-500 px-4 text-xl outline-none focus:ring-4 focus:ring-blue-100"
+              placeholder="Escanea un código o escribe un nombre"
+              className="h-14 w-full rounded-xl border-2 border-blue-500 px-4 text-xl outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
             />
             {results.length > 0 ? (
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <div className="mt-3 grid gap-2 sm:grid-cols-2" aria-label="Resultados de productos">
                 {results.map((product) => (
                   <button
                     key={product.id}
                     type="button"
                     disabled={!product.is_active || localBusy || isPending}
                     onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => void putProductInCart(product)}
-                    className="flex min-h-16 items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left hover:border-blue-400 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => void putProductInCart(product, false)}
+                    className="flex min-h-16 items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left hover:border-blue-400 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <span>
+                    <span className="min-w-0">
                       <span className="block font-semibold">{product.name}</span>
                       <span className="text-xs text-slate-500">
                         {product.unit_type === "WEIGHT" ? "kg" : "unidad"} · stock {product.stock_quantity}
@@ -1022,35 +1042,59 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
               </div>
             ) : null}
             <p className="mt-2 min-h-5 text-sm text-slate-500" aria-live="polite">
-              {persistenceError || message}
+              {persistenceError || message || (searching ? "Buscando..." : query.trim() && results.length === 0 ? "No se encontró el producto." : "")}
             </p>
           </form>
 
           <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
               <h1 className="text-lg font-bold">Carrito</h1>
-              <span className="text-sm text-slate-500">
-                {cart.length} {cart.length === 1 ? "producto" : "productos"}
+              <span className="text-sm text-slate-500" title="Productos distintos en el carrito">
+                {cart.length} {cart.length === 1 ? "línea" : "líneas"}
               </span>
             </div>
             {cart.length === 0 ? (
-              <p className="px-4 py-12 text-center text-slate-500">Escanea o busca un producto para comenzar.</p>
+              <p className="px-4 py-12 text-center text-slate-500">Escanea un producto o búscalo para comenzar.</p>
             ) : (
               <div className="divide-y divide-slate-100">
                 {cart.map((line) => {
                   const lineTotal = lineTotalCents(line.selling_price, line.quantity, line.unit_type);
                   return (
                     <div key={line.id} className="px-4 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
                           <p className="truncate font-semibold">{line.name}</p>
                           <p className="text-sm text-slate-500">{formatMoney(line.selling_price)} / {line.unit_type === "WEIGHT" ? "kg" : "unidad"}</p>
                         </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <p className="text-right font-bold tabular-nums">{lineTotal === null ? "—" : formatMoney(formatCents(lineTotal))}</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!localBusy && !isPending) {
+                                const nextCart = removeProduct(cart, line.id);
+                                if (nextCart.length === 0 && intent?.state === "DRAFT") {
+                                  emptyCleanupPendingRef.current = true;
+                                  setLocalBusy(true);
+                                }
+                                setCart(nextCart);
+                              }
+                            }}
+                            disabled={localBusy || isPending}
+                            aria-label={`Quitar ${line.name} del carrito`}
+                            title={`Quitar ${line.name} del carrito`}
+                            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Trash2 aria-hidden="true" className="size-5" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cantidad</span>
                         <div className="flex items-center gap-2">
                           {line.unit_type === "UNIT" ? (
                             <button
                               type="button"
-                              onMouseDown={(event) => event.preventDefault()}
                               onClick={() => {
                                 if (!localBusy && !isPending) {
                                   const nextCart = updateQuantity(cart, line.id, decrementIntegerQuantity(line.quantity));
@@ -1062,7 +1106,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
                                 }
                               }}
                               disabled={localBusy || isPending}
-                              className="h-12 w-12 rounded-xl border border-slate-300 text-2xl font-bold hover:bg-slate-50"
+                              className="h-12 w-12 rounded-xl border border-slate-300 text-2xl font-bold hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
                               aria-label={`Reducir ${line.name}`}
                             >
                               −
@@ -1070,7 +1114,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
                           ) : null}
 
                           {line.unit_type === "UNIT" ? (
-                            <span className="flex h-12 w-16 items-center justify-center rounded-xl bg-slate-100 text-lg font-bold tabular-nums">
+                            <span className="flex h-12 min-w-16 items-center justify-center rounded-xl bg-slate-100 px-2 text-lg font-bold tabular-nums">
                               {line.quantity}
                             </span>
                           ) : (
@@ -1096,43 +1140,19 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
                           {line.unit_type === "UNIT" ? (
                             <button
                               type="button"
-                              onMouseDown={(event) => event.preventDefault()}
                               onClick={() => {
                                 if (!localBusy && !isPending) {
                                   setCart((current) => updateQuantity(current, line.id, incrementIntegerQuantity(line.quantity)));
                                 }
                               }}
                               disabled={localBusy || isPending}
-                              className="h-12 w-12 rounded-xl border border-slate-300 text-2xl font-bold hover:bg-slate-50"
+                              className="h-12 w-12 rounded-xl border border-slate-300 text-2xl font-bold hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
                               aria-label={`Aumentar ${line.name}`}
                             >
                               +
                             </button>
                           ) : null}
                         </div>
-                        <div className="w-24 text-right font-bold">{lineTotal === null ? "—" : formatMoney(formatCents(lineTotal))}</div>
-                        <button
-                          type="button"
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => {
-                            if (!localBusy && !isPending) {
-                              const nextCart = removeProduct(cart, line.id);
-                              if (nextCart.length === 0 && intent?.state === "DRAFT") {
-                                emptyCleanupPendingRef.current = true;
-                                setLocalBusy(true);
-                              }
-                              setCart(nextCart);
-                            }
-                          }}
-                          disabled={localBusy || isPending}
-                          aria-label={`Quitar ${line.name} del carrito`}
-                          title={`Quitar ${line.name} del carrito`}
-                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-red-600 hover:bg-red-50"
-                        >
-                          <svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 7h12m-9 0V5a1 1 0 011-1h2a1 1 0 011 1v2m2 0v12a1 1 0 01-1 1H8a1 1 0 01-1-1V7m3 4v6m4-6v6" />
-                          </svg>
-                        </button>
                       </div>
                     </div>
                   );
@@ -1152,7 +1172,6 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
                 key={method}
                 type="button"
                 disabled={localBusy || isPending}
-                onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
                   if (localBusy || isPending) return;
                   setPaymentMethod(method);
