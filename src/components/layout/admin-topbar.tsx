@@ -18,8 +18,8 @@ export function AdminTopbar({ user }: { user: SessionUser }) {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span className="hidden max-w-48 truncate text-sm text-muted-foreground xl:block" title={user.email}>{user.email}</span>
-          <Link href="/account/password" className="hidden rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:inline-flex">
-            Contraseña
+          <Link href="/account" className="hidden rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:inline-flex">
+            Cuenta
           </Link>
           <form action={logout}>
             <Button type="submit" variant="outline" size="sm">Salir</Button>

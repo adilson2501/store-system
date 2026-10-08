@@ -12,6 +12,14 @@ export function validateEmail(value: string): string | null {
   return null;
 }
 
+export function validateEmailChange(currentEmail: string, requestedEmail: string): string | null {
+  const email = normalizeEmail(requestedEmail);
+  const emailError = validateEmail(email);
+  if (emailError) return emailError;
+  if (normalizeEmail(currentEmail) === email) return "El nuevo correo debe ser diferente al actual.";
+  return null;
+}
+
 export function validateDisplayName(value: string): string | null {
   const name = value.trim();
   if (!name || name.length > 120) {

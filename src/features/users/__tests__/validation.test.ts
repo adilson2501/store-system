@@ -4,6 +4,7 @@ import {
   parseRole,
   validateDisplayName,
   validateEmail,
+  validateEmailChange,
   validatePassword,
   validatePasswordConfirmation,
 } from "@/features/users/validation";
@@ -18,6 +19,12 @@ describe("user management validation", () => {
     expect(validateEmail("invalid")).toBeTruthy();
   });
 
+  it("validates self-service email changes", () => {
+    expect(validateEmailChange("admin@example.com", " ADMIN@EXAMPLE.COM ")).toBeTruthy();
+    expect(validateEmailChange("admin@example.com", "invalid")).toBeTruthy();
+    expect(validateEmailChange("admin@example.com", "seller@example.com")).toBeNull();
+  });
+
   it("validates display names", () => {
     expect(validateDisplayName(" Ana ")).toBeNull();
     expect(validateDisplayName(" ")).toBeTruthy();
@@ -30,6 +37,10 @@ describe("user management validation", () => {
 
   it("validates temporary passwords", () => {
     expect(validatePassword("short")).toBeTruthy();
+    expect(validatePassword("1234567")).toBeTruthy();
+    expect(validatePassword("12345678")).toBeNull();
+    expect(validatePassword("a".repeat(72))).toBeNull();
+    expect(validatePassword("a".repeat(73))).toBeTruthy();
     expect(validatePassword("long-enough-password")).toBeNull();
   });
 

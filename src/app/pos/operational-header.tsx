@@ -44,7 +44,7 @@ export function OperationalHeader({ sellerName, userRole, cashSessionOpen }: Pro
               <ShieldCheck aria-hidden="true" />Administracion
             </Link>
           ) : null}
-          <Link href="/account/password" aria-label="Cuenta y contrasena" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "min-h-10 min-w-10")}>
+          <Link href="/account" aria-label="Cuenta y contrasena" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "min-h-10 min-w-10")}>
             <CircleUserRound aria-hidden="true" />
           </Link>
           <form action={logout}>
