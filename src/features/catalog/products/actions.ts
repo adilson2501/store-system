@@ -47,6 +47,10 @@ function parseUnitType(raw: unknown): UnitType | null {
   return null;
 }
 
+function productSaveError(): string {
+  return "No se pudo guardar el producto. Intenta nuevamente.";
+}
+
 export async function createProduct(
   _prevState: ProductFormState,
   formData: FormData,
@@ -135,7 +139,7 @@ export async function createProduct(
         error: "El código de barras debe ser único.",
       };
     }
-    return { error: error.message, values };
+    return { error: productSaveError(), values };
   }
 
   const productId = typeof data === "string" ? data : String(data);
@@ -232,7 +236,7 @@ export async function updateProduct(
           "El tipo de unidad no puede cambiarse porque el producto ya tiene historial de inventario.",
       };
     }
-    return { error: error.message, values };
+    return { error: productSaveError(), values };
   }
 
   revalidatePath("/admin/products");
@@ -290,7 +294,7 @@ function toStockAdjustErrorMessage(raw: string): string {
     return "Los productos UNIT requieren cantidades enteras.";
   }
 
-  return message;
+  return "No se pudo ajustar el stock. Intenta nuevamente.";
 }
 
 function toInventoryLossErrorMessage(raw: string): string {
@@ -320,7 +324,7 @@ function toInventoryLossErrorMessage(raw: string): string {
   if (message.includes("Product not found")) {
     return "Producto no encontrado.";
   }
-  return message;
+  return "No se pudo registrar la merma. Intenta nuevamente.";
 }
 
 export async function registerInventoryLoss(

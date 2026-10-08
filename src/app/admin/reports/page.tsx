@@ -31,8 +31,15 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const params = await searchParams;
   const requested = params.period === "week" || params.period === "month" || params.period === "custom" ? params.period : "today";
   const normalized = normalizeReportPeriod(requested, params.from, params.to);
-  const report = "error" in normalized ? null : await getSalesReport(normalized.start, normalized.end).catch(() => null);
-  const error = "error" in normalized ? normalized.error : report ? null : "No se pudo cargar el reporte de ventas. Intenta nuevamente.";
+  let report: Awaited<ReturnType<typeof getSalesReport>> | null = null;
+  let error: string | null = "error" in normalized ? normalized.error : null;
+  if (!error && !("error" in normalized)) {
+    try {
+      report = await getSalesReport(normalized.start, normalized.end);
+    } catch {
+      error = "No se pudo cargar el reporte de ventas. Intenta nuevamente.";
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">

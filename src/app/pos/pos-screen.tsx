@@ -123,7 +123,7 @@ function toPosErrorMessage(raw: string, code?: string, stockDetails?: Insufficie
     return "No pudimos verificar la venta. Revisa tu conexión e intenta nuevamente.";
   }
 
-  return message;
+  return "No pudimos completar la operación. Intenta nuevamente.";
 }
 
 function cartFromIntent(items: SaleIntentProduct[]): CartLine[] {
@@ -194,7 +194,7 @@ function restoredIntentMessage(restored: SaleIntent): string {
   }
 }
 
-export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen, initialCashSessionId }: { userId: string; userRole: "ADMIN" | "SELLER"; sellerName: string; initialCashSessionOpen: boolean; initialCashSessionId: string | null }) {
+export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen, initialCashSessionId, initialCashSessionError }: { userId: string; userRole: "ADMIN" | "SELLER"; sellerName: string; initialCashSessionOpen: boolean; initialCashSessionId: string | null; initialCashSessionError: string | null }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PosProduct[]>([]);
@@ -221,6 +221,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
   const [customerFresh, setCustomerFresh] = useState(false);
   const [cashSessionOpen, setCashSessionOpen] = useState(initialCashSessionOpen);
   const [cashSessionId, setCashSessionId] = useState<string | null>(initialCashSessionId);
+  const [cashSessionError, setCashSessionError] = useState(initialCashSessionError ?? "");
   const [isPending, startTransition] = useTransition();
   const productInputRef = useRef<HTMLInputElement>(null);
   const scannerFocusPendingRef = useRef(false);
@@ -273,7 +274,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
       : `Registrar fiado S/. ${formatCents(totalCents)}`;
   const draftIntentKey = intent?.state === "DRAFT" ? intent.clientKey : null;
   const canConfirm =
-    !hydrating && !tabBlocked && !localBusy && intent?.state === "DRAFT" &&
+    !hydrating && !cashSessionError && !tabBlocked && !localBusy && intent?.state === "DRAFT" &&
     cart.length > 0 &&
     cart.every((line) => {
       const quantity = parseThousandths(line.quantity);
@@ -299,9 +300,11 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
           if (!cancelled) {
             setCashSessionOpen(currentCash.kind === "OPEN");
             setCashSessionId(currentCash.kind === "OPEN" ? currentCash.session.session_id : null);
+            setCashSessionError("");
           }
-        } catch (error) {
-          console.error(error);
+        } catch {
+          console.error("POS cash session refresh failed");
+          if (!cancelled) setCashSessionError("No se pudo verificar el estado de la caja. No se pueden realizar ventas.");
         }
 
         await cleanupConfirmedIntentForOwner(userId);
@@ -1073,6 +1076,21 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
       throw new Error("Confirmed sale intent must be cleaned before rendering");
     }
     return <main className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-700"><p className="rounded-xl bg-white px-6 py-5 text-center font-semibold shadow-sm">No se pudo cargar el punto de venta.</p></main>;
+  }
+
+  if (cashSessionError) {
+    return (
+      <main className="min-h-screen bg-background text-foreground">
+        <OperationalHeader sellerName={sellerName} userRole={userRole} cashSessionOpen={false} currentArea="POS" />
+        <section className="mx-auto flex min-h-[calc(100vh-86px)] max-w-xl items-center px-4 py-8">
+          <div className="w-full rounded-2xl border border-red-200 bg-white p-6 text-center shadow-sm sm:p-8">
+            <p className="text-2xl font-black">Estado de caja no disponible</p>
+            <p className="mt-3 text-slate-600">{cashSessionError}</p>
+            <Link href="/pos" className="mt-6 inline-flex min-h-14 items-center rounded-xl bg-primary px-6 text-lg font-black text-primary-foreground hover:bg-primary/90">Reintentar</Link>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   if (!cashSessionOpen) {

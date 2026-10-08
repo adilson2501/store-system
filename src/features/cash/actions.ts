@@ -45,7 +45,7 @@ function mapError(raw: string): string {
   if (message.includes("Cash session is already closed")) return "Esta caja ya fue cerrada.";
   if (message.includes("Only the session operator")) return "Solo el operador de la caja puede cerrarla.";
   if (message.includes("Cash session not found")) return "No se encontró la sesión de caja.";
-  return message || "No se pudo completar la operación de caja.";
+  return "No se pudo completar la operación de caja. Intenta nuevamente.";
 }
 
 function normalizeCurrent(row: CurrentSessionRow): CurrentCashSession {
@@ -115,8 +115,8 @@ export async function getCurrentCashSessionState(): Promise<CashSessionState> {
   await requireUser();
   try {
     return await loadCurrentState(await createClient());
-  } catch (error) {
-    console.error(error);
+  } catch {
+    console.error("Cash session state load failed");
     throw new Error("No se pudo cargar la caja.");
   }
 }
@@ -140,8 +140,8 @@ export async function openCashSession(input: {
     });
     if (error) return { ok: false, error: mapError(error.message) };
     return { ok: true, state: await loadCurrentState(supabase) };
-  } catch (error) {
-    console.error(error);
+  } catch {
+    console.error("Cash session open failed");
     return { ok: false, error: "No se pudo abrir la caja. Intenta nuevamente." };
   }
 }
@@ -169,8 +169,8 @@ export async function closeCashSession(input: {
     });
     if (error) return { ok: false, error: mapError(error.message) };
     return { ok: true, snapshot: normalizeClosed((data ?? {}) as Record<string, unknown>) };
-  } catch (error) {
-    console.error(error);
+  } catch {
+    console.error("Cash session close failed");
     return { ok: false, error: "No se pudo cerrar la caja. Intenta nuevamente." };
   }
 }
