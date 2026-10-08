@@ -9,77 +9,158 @@ function newClientKey() {
   return crypto.randomUUID();
 }
 
+function normalizeMoneyInput(value: string): string {
+  const normalized = value.replace(/,/g, ".").replace(/[^\d.]/g, "");
+  const dotIndex = normalized.indexOf(".");
+  if (dotIndex === -1) return normalized;
+  const whole = normalized.slice(0, dotIndex) || "0";
+  const fraction = normalized.slice(dotIndex + 1).replace(/\./g, "").slice(0, 2);
+  return `${whole}.${fraction}`;
+}
+
 function formatMoney(value: string): string {
   const cents = parseCents(value);
   return cents === null ? "S/. 0.00" : `S/. ${formatCents(cents)}`;
-}
-
-function formatSignedMoney(value: string): string {
-  const cents = parseCents(value.replace(/^-/, ""));
-  if (cents === null) return "S/. 0.00";
-  if (cents === BigInt(0)) return "S/. 0.00";
-  return value.startsWith("-") ? `-S/. ${formatCents(cents)}` : `+S/. ${formatCents(cents)}`;
 }
 
 function dateTime(value: string): string {
   return new Date(value).toLocaleString("es-PE");
 }
 
-function Summary({ summary }: { summary: CashSessionSummary }) {
+function time(value: string): string {
+  return new Date(value).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+}
+
+function differenceState(value: bigint | null): { label: string; detail: string; className: string } {
+  if (value === null || value === BigInt(0)) {
+    return { label: "Caja cuadrada", detail: "S/. 0.00", className: "border-success/30 bg-success/10 text-success" };
+  }
+  if (value < BigInt(0)) {
+    return { label: "Faltante", detail: `S/. ${formatCents(-value)}`, className: "border-destructive/30 bg-destructive/10 text-destructive" };
+  }
+  return { label: "Sobrante", detail: `S/. ${formatCents(value)}`, className: "border-info/30 bg-info/10 text-info" };
+}
+
+function MoneyInput({
+  id,
+  value,
+  onChange,
+  disabled,
+  label,
+  help,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+  label: string;
+  help: string;
+}) {
   return (
-    <dl className="mt-5 divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white">
-      <div className="px-4 py-3 text-sm font-semibold text-zinc-500">Resumen actual</div>
-      <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
-        <SummaryRow label="Ventas en efectivo" value={summary.cash_sales} />
-        <SummaryRow label="Ventas Yape" value={summary.yape_sales} />
-        <SummaryRow label="Ventas fiadas" value={summary.credit_sales} />
-        <SummaryRow label="Cobros de deuda en efectivo" value={summary.cash_debt_payments} />
-        <SummaryRow label="Cobros de deuda por Yape" value={summary.yape_debt_payments} />
-        <SummaryRow label="Total vendido" value={summary.total_sales} strong />
-        <SummaryRow label="Efectivo esperado" value={summary.expected_cash} strong />
+    <div>
+      <label htmlFor={id} className="block text-sm font-bold text-foreground">{label}</label>
+      <div className="relative mt-2">
+        <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-xl font-bold text-muted-foreground">S/.</span>
+        <input
+          id={id}
+          type="text"
+          inputMode="decimal"
+          minLength={1}
+          value={value}
+          onChange={(event) => onChange(normalizeMoneyInput(event.target.value))}
+          disabled={disabled}
+          autoComplete="off"
+          placeholder="0.00"
+          aria-describedby={`${id}-help`}
+          className="h-16 w-full rounded-xl border-2 border-input bg-card pl-14 pr-4 text-2xl font-black tabular-nums outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:bg-muted"
+        />
       </div>
-    </dl>
+      <p id={`${id}-help`} className="mt-2 text-sm text-muted-foreground">{help}</p>
+    </div>
   );
 }
 
-function SummaryRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+function SummaryLine({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="text-zinc-600">{label}</dt>
+    <div className="flex items-center justify-between gap-4">
+      <dt className={strong ? "font-bold text-foreground" : "text-muted-foreground"}>{label}</dt>
       <dd className={strong ? "font-black tabular-nums" : "font-semibold tabular-nums"}>{formatMoney(value)}</dd>
     </div>
   );
 }
 
-function ClosedSummary({ snapshot }: { snapshot: ClosedCashSession }) {
+function PhysicalCash({ summary }: { summary: CashSessionSummary }) {
   return (
-    <div className="space-y-5">
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
-        <p className="text-lg font-bold">Caja cerrada</p>
-        <p className="mt-1 text-sm">El cierre quedó registrado correctamente.</p>
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6" aria-labelledby="physical-cash-title">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Efectivo físico</p>
+          <h2 id="physical-cash-title" className="mt-1 text-lg font-black">Lo que debería haber en caja</h2>
+        </div>
+        <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">3 fuentes</span>
       </div>
-      <div className="grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 text-sm sm:grid-cols-2">
-        <div><p className="text-zinc-500">Hora de apertura</p><p className="font-semibold">{dateTime(snapshot.opened_at)}</p></div>
-        <div><p className="text-zinc-500">Hora de cierre</p><p className="font-semibold">{dateTime(snapshot.closed_at)}</p></div>
-      </div>
-      <dl className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white">
-        <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
-          <SummaryRow label="Fondo inicial" value={snapshot.opening_cash} />
-          <SummaryRow label="Ventas en efectivo" value={snapshot.cash_sales} />
-          <SummaryRow label="Ventas Yape" value={snapshot.yape_sales} />
-          <SummaryRow label="Ventas fiadas" value={snapshot.credit_sales} />
-          <SummaryRow label="Cobros de deuda en efectivo" value={snapshot.cash_debt_payments} />
-          <SummaryRow label="Cobros de deuda por Yape" value={snapshot.yape_debt_payments} />
-          <SummaryRow label="Total vendido" value={snapshot.total_sales} strong />
-          <SummaryRow label="Efectivo esperado" value={snapshot.expected_cash} strong />
-          <SummaryRow label="Efectivo contado" value={snapshot.counted_cash} strong />
-          <div className="flex items-center justify-between gap-3 sm:col-span-2">
-            <dt className="font-semibold text-zinc-700">Diferencia</dt>
-            <dd className="text-lg font-black tabular-nums">{formatSignedMoney(snapshot.difference)}</dd>
-          </div>
+      <dl className="mt-5 space-y-3 text-sm">
+        <SummaryLine label="Monto inicial" value={summary.opening_cash} />
+        <SummaryLine label="Ventas en efectivo" value={summary.cash_sales} />
+        <SummaryLine label="Cobros de fiado" value={summary.cash_debt_payments} />
+        <div className="border-t border-border pt-3">
+          <SummaryLine label="Efectivo esperado" value={summary.expected_cash} strong />
         </div>
       </dl>
+    </section>
+  );
+}
+
+function OtherActivity({ summary }: { summary: CashSessionSummary }) {
+  return (
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6" aria-labelledby="other-activity-title">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Otros movimientos</p>
+      <h2 id="other-activity-title" className="mt-1 text-lg font-black">Actividad que no está en el cajón</h2>
+      <dl className="mt-5 space-y-3 text-sm">
+        <SummaryLine label="Ventas Yape" value={summary.yape_sales} />
+        <SummaryLine label="Ventas fiadas" value={summary.credit_sales} />
+        <SummaryLine label="Cobros de deuda por Yape" value={summary.yape_debt_payments} />
+        <div className="border-t border-border pt-3">
+          <SummaryLine label="Total vendido" value={summary.total_sales} strong />
+        </div>
+      </dl>
+    </section>
+  );
+}
+
+function CloseDifference({ difference }: { difference: bigint | null }) {
+  const state = differenceState(difference);
+  return (
+    <div className={`rounded-xl border px-4 py-3 ${state.className}`}>
+      <p className="text-sm font-bold">Diferencia</p>
+      <p className="mt-1 text-xl font-black tabular-nums">{state.label}: {state.detail}</p>
+      <p className="mt-1 text-xs opacity-80">Efectivo contado menos efectivo esperado</p>
     </div>
+  );
+}
+
+function ClosedSummary({ snapshot, onNewSession }: { snapshot: ClosedCashSession; onNewSession: () => void }) {
+  const difference = parseCents(snapshot.difference);
+  const state = differenceState(difference);
+  return (
+    <section className="space-y-5" aria-labelledby="closed-title">
+      <div className="rounded-2xl border border-success/30 bg-success/10 p-5 text-success sm:p-6">
+        <p className="text-xs font-bold uppercase tracking-[0.18em]">Resultado del turno</p>
+        <h2 id="closed-title" className="mt-2 text-2xl font-black">Caja cerrada</h2>
+        <p className="mt-1 font-bold">{state.label}: {state.detail}</p>
+        <p className="mt-2 text-sm opacity-80">Cerrada: {dateTime(snapshot.closed_at)}</p>
+      </div>
+      <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6" aria-label="Resumen del cierre">
+        <dl className="grid gap-4 text-sm sm:grid-cols-2">
+          <SummaryLine label="Efectivo esperado" value={snapshot.expected_cash} strong />
+          <SummaryLine label="Efectivo contado" value={snapshot.counted_cash} strong />
+          <div className="sm:col-span-2"><CloseDifference difference={difference} /></div>
+        </dl>
+      </section>
+      <button type="button" onClick={onNewSession} className="min-h-14 w-full rounded-xl bg-primary px-4 text-lg font-black text-primary-foreground hover:bg-primary/90">
+        Abrir nueva caja
+      </button>
+    </section>
   );
 }
 
@@ -101,6 +182,10 @@ export function CashScreen({ initialState, initialError = "" }: { initialState: 
   const canOpen = openAmountCents !== null && openAmountCents >= BigInt(0) && !isPending;
   const canClose = state.kind === "OPEN" && countedCents !== null && countedCents >= BigInt(0) && !isPending;
 
+  function showError(message: string) {
+    setError(message);
+  }
+
   function refresh() {
     setError("");
     startTransition(async () => {
@@ -108,7 +193,7 @@ export function CashScreen({ initialState, initialError = "" }: { initialState: 
         setState(await getCurrentCashSessionState());
       } catch (refreshError) {
         console.error(refreshError);
-        setError("No se pudo cargar la caja. Intenta actualizar nuevamente.");
+        showError("No se pudo actualizar la caja.");
       }
     });
   }
@@ -119,7 +204,7 @@ export function CashScreen({ initialState, initialError = "" }: { initialState: 
     startTransition(async () => {
       const result = await openCashSession({ clientKey: openingClientKey, openingCash });
       if (!result.ok) {
-        setError(result.error);
+        showError(result.error || "No se pudo abrir la caja.");
         return;
       }
       setState(result.state);
@@ -139,7 +224,7 @@ export function CashScreen({ initialState, initialError = "" }: { initialState: 
         countedCash,
       });
       if (!result.ok) {
-        setError(result.error);
+        showError(result.error || "No se pudo cerrar la caja.");
         return;
       }
       setState({ kind: "CLOSED", snapshot: result.snapshot });
@@ -160,104 +245,101 @@ export function CashScreen({ initialState, initialError = "" }: { initialState: 
   }
 
   if (state.kind === "CLOSED") {
-    return (
-      <section className="space-y-5">
-        <ClosedSummary snapshot={state.snapshot} />
-        <button type="button" onClick={startNewSession} className="min-h-14 w-full rounded-xl bg-blue-600 px-4 text-lg font-bold text-white hover:bg-blue-700">
-          Abrir nueva caja
-        </button>
-      </section>
-    );
+    return <ClosedSummary snapshot={state.snapshot} onNewSession={startNewSession} />;
   }
 
   if (state.kind === "NONE") {
     return (
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="rounded-xl bg-zinc-100 p-4">
-          <p className="text-lg font-bold">Caja cerrada</p>
-          <p className="mt-1 text-sm text-zinc-600">Abre la caja para comenzar la jornada.</p>
+      <section className="mx-auto max-w-2xl rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-8" aria-labelledby="open-cash-title">
+        <div className="rounded-2xl bg-muted p-5 sm:p-6">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Estado de caja</p>
+          <h2 id="open-cash-title" className="mt-2 text-2xl font-black">Caja cerrada</h2>
+          <p className="mt-2 text-muted-foreground">Abre una caja antes de comenzar a vender.</p>
         </div>
-        {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-3 text-sm font-semibold text-red-700" role="alert">{error}</p> : null}
-        <div className="mt-5">
-          <label htmlFor="opening-cash" className="block text-sm font-semibold text-zinc-700">Monto inicial en efectivo</label>
-          <input
-            id="opening-cash"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="0.01"
-            value={openingCash}
-            onChange={(event) => setOpeningCash(event.target.value)}
-            disabled={isPending}
-            autoComplete="off"
-            placeholder="0.00"
-            className="mt-2 h-14 w-full rounded-xl border-2 border-zinc-300 px-4 text-2xl font-bold tabular-nums outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-zinc-100"
-          />
+        {error ? <p className="mt-5 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive" role="alert">{error}</p> : null}
+        <div className="mt-6">
+          <MoneyInput id="opening-cash" label="Monto inicial" help="Efectivo con el que empiezas el turno." value={openingCash} onChange={setOpeningCash} disabled={isPending} />
         </div>
-        <button type="button" onClick={submitOpening} disabled={!canOpen} className="mt-5 min-h-14 w-full rounded-xl bg-blue-600 px-4 text-lg font-black text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300">
-          {isPending ? "Abriendo…" : "Abrir caja"}
+        <button type="button" onClick={submitOpening} disabled={!canOpen} className="mt-6 min-h-14 w-full rounded-xl bg-primary px-4 text-lg font-black text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground">
+          {isPending ? "Abriendo caja…" : "Abrir caja"}
         </button>
-        <button type="button" onClick={refresh} disabled={isPending} className="mt-3 w-full rounded-xl px-4 py-3 text-sm font-semibold text-zinc-600 hover:bg-zinc-100">
-          Actualizar estado
+        <button type="button" onClick={refresh} disabled={isPending} className="mt-3 min-h-12 w-full rounded-xl px-4 py-3 text-sm font-bold text-muted-foreground hover:bg-muted disabled:opacity-60">
+          {isPending ? "Actualizando…" : "Actualizar estado"}
         </button>
       </section>
     );
   }
 
+  if (!summary) return null;
+
   return (
     <section className="space-y-5">
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
-        <p className="text-lg font-bold">Caja abierta</p>
-        <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-          <div><dt className="text-emerald-700">Hora de apertura</dt><dd className="font-semibold">{dateTime(state.session.opened_at)}</dd></div>
-          <div><dt className="text-emerald-700">Fondo inicial</dt><dd className="font-semibold">{formatMoney(state.session.opening_cash)}</dd></div>
-        </dl>
-      </div>
-      {error ? <p className="rounded-lg bg-red-50 px-3 py-3 text-sm font-semibold text-red-700" role="alert">{error}</p> : null}
-      <Summary summary={state.summary} />
-
-      {!closeRequested ? (
-        <button type="button" onClick={() => setCloseRequested(true)} disabled={isPending} className="min-h-14 w-full rounded-xl bg-zinc-900 px-4 text-lg font-black text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-300">
-          Cerrar caja
-        </button>
-      ) : (
-        <div className="rounded-xl border border-zinc-300 bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-lg font-bold">Cerrar caja</h2>
-          <dl className="mt-4 grid gap-3 rounded-xl bg-zinc-50 p-4 text-sm sm:grid-cols-2">
-            <SummaryRow label="Fondo inicial" value={state.summary.opening_cash} />
-            <SummaryRow label="Efectivo esperado" value={state.summary.expected_cash} strong />
-          </dl>
-          <label htmlFor="counted-cash" className="mt-5 block text-sm font-semibold text-zinc-700">Efectivo contado</label>
-          <input
-            id="counted-cash"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="0.01"
-            value={countedCash}
-            onChange={(event) => setCountedCash(event.target.value)}
-            disabled={isPending}
-            autoComplete="off"
-            placeholder="0.00"
-            className="mt-2 h-14 w-full rounded-xl border-2 border-zinc-300 px-4 text-2xl font-bold tabular-nums outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-zinc-100"
-          />
-          {differenceCents !== null ? (
-            <div className="mt-4 rounded-xl bg-zinc-100 px-4 py-3">
-              <p className="text-sm text-zinc-600">Diferencia</p>
-              <p className="mt-1 text-2xl font-black tabular-nums">{differenceCents < BigInt(0) ? `-S/. ${formatCents(-differenceCents)}` : `+S/. ${formatCents(differenceCents)}`}</p>
-              <p className="mt-1 text-xs text-zinc-500">Efectivo contado - Efectivo esperado</p>
-            </div>
-          ) : null}
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <button type="button" onClick={() => setCloseRequested(false)} disabled={isPending} className="min-h-14 rounded-xl border border-zinc-300 px-4 text-base font-bold text-zinc-700 hover:bg-zinc-50 disabled:bg-zinc-100">
-              Cancelar
-            </button>
-            <button type="button" onClick={submitClosing} disabled={!canClose} className="min-h-14 rounded-xl bg-emerald-600 px-4 text-base font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-300">
-              {isPending ? "Cerrando…" : "Confirmar cierre"}
-            </button>
+      <div className="rounded-2xl border border-success/30 bg-success/10 p-5 text-success sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em]">Estado de caja</p>
+            <h2 className="mt-2 text-2xl font-black">Caja abierta</h2>
+            <p className="mt-2 text-sm opacity-80">Abierta desde {time(state.session.opened_at)}</p>
+          </div>
+          <div className="text-left sm:text-right">
+            <p className="text-sm font-bold opacity-80">Efectivo esperado</p>
+            <p className="mt-1 text-4xl font-black tracking-tight tabular-nums">{formatMoney(summary.expected_cash)}</p>
           </div>
         </div>
-      )}
+      </div>
+
+      {error ? <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm font-bold text-destructive" role="alert">{error}</p> : null}
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <PhysicalCash summary={summary} />
+        <OtherActivity summary={summary} />
+      </div>
+
+      <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6" aria-labelledby="close-cash-title">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Siguiente tarea</p>
+            <h2 id="close-cash-title" className="mt-1 text-xl font-black">Cerrar caja</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Cuenta el dinero físico que realmente tienes en caja.</p>
+          </div>
+          <button type="button" onClick={refresh} disabled={isPending} className="min-h-12 rounded-xl border border-border px-4 text-sm font-bold text-foreground hover:bg-muted disabled:opacity-60">
+            {isPending ? "Actualizando…" : "Actualizar"}
+          </button>
+        </div>
+
+        {!closeRequested ? (
+          <div className="mt-5 grid gap-4 rounded-xl bg-muted p-4 sm:grid-cols-2">
+            <SummaryLine label="Efectivo esperado" value={summary.expected_cash} strong />
+            <div className="sm:col-span-2">
+              <MoneyInput id="counted-cash" label="Efectivo contado" help="Cuenta y registra todo el dinero físico que tienes." value={countedCash} onChange={setCountedCash} disabled={isPending} />
+            </div>
+            {differenceCents !== null ? <div className="sm:col-span-2"><CloseDifference difference={differenceCents} /></div> : null}
+          </div>
+        ) : (
+          <div className="mt-5 rounded-2xl border border-primary/25 bg-primary/5 p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="confirm-close-title">
+            <h3 id="confirm-close-title" className="text-lg font-black">¿Cerrar la caja?</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Revisa estos valores antes de confirmar el cierre.</p>
+            <dl className="mt-5 space-y-3 rounded-xl bg-card p-4 text-sm">
+              <SummaryLine label="Esperado" value={summary.expected_cash} strong />
+              <SummaryLine label="Contado" value={countedCash} strong />
+            </dl>
+            <div className="mt-4"><CloseDifference difference={differenceCents} /></div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <button type="button" onClick={() => setCloseRequested(false)} disabled={isPending} className="min-h-14 rounded-xl border border-border px-4 text-base font-bold text-foreground hover:bg-muted disabled:opacity-60">Volver</button>
+              <button type="button" onClick={submitClosing} disabled={!canClose} className="min-h-14 rounded-xl bg-primary px-4 text-base font-black text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground">
+                {isPending ? "Cerrando caja…" : "Confirmar cierre"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!closeRequested ? (
+          <button type="button" onClick={() => setCloseRequested(true)} disabled={!canClose} className="mt-5 min-h-14 w-full rounded-xl bg-primary px-4 text-lg font-black text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground">
+            Cerrar caja
+          </button>
+        ) : null}
+        {closeRequested && differenceCents === null ? <p className="mt-4 text-sm font-semibold text-destructive" role="alert">Ingresa el efectivo contado para continuar.</p> : null}
+      </section>
     </section>
   );
 }
