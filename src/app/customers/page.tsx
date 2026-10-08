@@ -1,20 +1,33 @@
-import { AppHeader } from "@/components/app-header";
+import { OperationalHeader } from "@/app/pos/operational-header";
+import { getCurrentCashSessionState } from "@/features/cash/actions";
 import { requireUser } from "@/features/auth/session";
 import { CustomerCollection } from "./customer-collection";
 
 export default async function CustomersPage() {
   const user = await requireUser();
+  let cashSessionOpen: boolean | null = null;
+  try {
+    const state = await getCurrentCashSessionState();
+    cashSessionOpen = state.kind === "OPEN";
+  } catch (error) {
+    console.error(error);
+  }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader user={user} />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:py-8">
+    <main className="min-h-screen bg-background text-foreground">
+      <OperationalHeader
+        sellerName={user.displayName ?? user.email}
+        userRole={user.role}
+        cashSessionOpen={cashSessionOpen === true}
+      />
+      <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-5 sm:py-8">
         <div className="mb-6">
-          <h1 className="text-xl font-semibold">Clientes</h1>
-          <p className="mt-1 text-sm text-zinc-500">Consulta de deuda y registro de pagos</p>
+          <p className="text-sm font-semibold text-primary">Ventas y control</p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight">Clientes</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Consulta la deuda de un cliente y registra sus pagos.</p>
         </div>
-        <CustomerCollection />
-      </main>
-    </div>
+        <CustomerCollection initialCashSessionOpen={cashSessionOpen} />
+      </div>
+    </main>
   );
 }
