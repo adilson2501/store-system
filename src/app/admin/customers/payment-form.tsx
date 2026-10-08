@@ -2,6 +2,9 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { registerCustomerPayment, type PaymentFormState } from "@/features/customers/actions";
 import { parseSignedCents } from "@/features/customers/validation";
 
@@ -17,30 +20,30 @@ export function CustomerPaymentForm({ customerId, currentDebt, initialClientKey 
 
   return (
     <form action={formAction} className="space-y-4">
-      {state.error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert"><p>{state.error}</p>{state.error.includes("Debes abrir caja") ? <Link href="/cash" className="mt-2 inline-block font-semibold underline">Abrir caja</Link> : null}</div> : null}
-      {state.success ? <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">{state.success}</p> : null}
+      {state.error ? <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert"><p>{state.error}</p>{state.error.includes("Debes abrir caja") ? <Link href="/cash" className="mt-2 inline-block font-semibold underline">Abrir caja</Link> : null}</div> : null}
+      {state.success ? <p className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success" role="status">{state.success}</p> : null}
       <input type="hidden" name="client_key" value={values.client_key} />
 
-      <div className="space-y-1">
-        <label htmlFor="payment-amount" className="block text-sm font-medium text-zinc-700">Monto pagado (S/.)</label>
-        <input id="payment-amount" name="amount" type="text" inputMode="decimal" required={!noDebt} disabled={noDebt || pending} defaultValue={values.amount} placeholder="0.00" className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 disabled:bg-zinc-100" />
+      <div className="space-y-2">
+        <Label htmlFor="payment-amount">Monto pagado (S/.)</Label>
+        <Input id="payment-amount" name="amount" type="text" inputMode="decimal" required={!noDebt} disabled={noDebt || pending} defaultValue={values.amount} placeholder="0.00" />
       </div>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-zinc-700">Medio de pago</legend>
-        <div className="flex gap-5 text-sm text-zinc-800">
-          <label className="flex items-center gap-2"><input type="radio" name="payment_method" value="CASH" defaultChecked={values.payment_method === "CASH"} disabled={noDebt || pending} /> EFECTIVO</label>
-          <label className="flex items-center gap-2"><input type="radio" name="payment_method" value="YAPE" defaultChecked={values.payment_method === "YAPE"} disabled={noDebt || pending} /> YAPE</label>
+        <legend className="text-sm font-medium text-foreground">Medio de pago</legend>
+        <div className="flex flex-wrap gap-5 text-sm text-foreground">
+          <label className="flex items-center gap-2"><input type="radio" name="payment_method" value="CASH" defaultChecked={values.payment_method === "CASH"} disabled={noDebt || pending} className="accent-primary" /> EFECTIVO</label>
+          <label className="flex items-center gap-2"><input type="radio" name="payment_method" value="YAPE" defaultChecked={values.payment_method === "YAPE"} disabled={noDebt || pending} className="accent-primary" /> YAPE</label>
         </div>
       </fieldset>
 
-      <div className="space-y-1">
-        <label htmlFor="payment-note" className="block text-sm font-medium text-zinc-700">Nota <span className="font-normal text-zinc-400">(opcional)</span></label>
-        <textarea id="payment-note" name="note" maxLength={1000} rows={2} defaultValue={values.note} disabled={noDebt || pending} className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 disabled:bg-zinc-100" />
+      <div className="space-y-2">
+        <Label htmlFor="payment-note">Nota <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+        <textarea id="payment-note" name="note" maxLength={1000} rows={2} defaultValue={values.note} disabled={noDebt || pending} className="flex min-h-16 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
       </div>
 
-      {noDebt ? <p className="rounded-md bg-zinc-100 px-3 py-2 text-sm text-zinc-600">No hay deuda pendiente para registrar un pago.</p> : null}
-      <button type="submit" disabled={noDebt || pending} className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-zinc-300">{pending ? "Registrando…" : "Registrar pago"}</button>
+      {noDebt ? <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">No hay deuda pendiente para registrar un pago.</p> : null}
+      <Button type="submit" disabled={noDebt || pending}>{pending ? "Registrando…" : "Registrar pago"}</Button>
     </form>
   );
 }

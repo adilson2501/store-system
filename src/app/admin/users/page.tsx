@@ -1,43 +1,51 @@
-import { AppHeader } from "@/components/app-header";
+import { UserPlus, Users } from "lucide-react";
+
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAdmin } from "@/features/auth/session";
 import { listManagedUsers, listUserManagementEvents } from "@/features/users/queries";
 import { CreateUserForm, UserRow } from "@/app/admin/users/user-management";
 
+const eventLabels: Record<string, string> = {
+  USER_CREATED: "Usuario creado",
+  ROLE_CHANGED: "Rol actualizado",
+  USER_DEACTIVATED: "Usuario desactivado",
+  USER_REACTIVATED: "Usuario reactivado",
+  PASSWORD_RESET_REQUESTED: "Restablecimiento de contraseña solicitado",
+};
+
+function eventLabel(eventType: string): string {
+  return eventLabels[eventType] ?? "Actividad de usuario";
+}
+
 export default async function UsersPage() {
-  const user = await requireAdmin();
+  await requireAdmin();
   const [users, events] = await Promise.all([listManagedUsers(), listUserManagementEvents()]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader user={user} />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-        <h1 className="text-lg font-semibold">Usuarios</h1>
-        <p className="mt-1 text-sm text-zinc-500">Administra el acceso de administradores y vendedores.</p>
-        <section className="mt-6">
-          <h2 className="mb-3 text-sm font-semibold">Crear usuario</h2>
-          <CreateUserForm />
-        </section>
-        <section className="mt-8">
-          <h2 className="mb-3 text-sm font-semibold">Usuarios registrados</h2>
-          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-500">
-                <tr><th className="px-4 py-3">Usuario</th><th className="px-4 py-3">Rol</th><th className="px-4 py-3">Estado</th><th className="px-4 py-3">Creado</th><th className="px-4 py-3">Acciones</th></tr>
-              </thead>
-              <tbody>{users.map((managedUser) => <UserRow key={managedUser.id} user={managedUser} />)}</tbody>
-            </table>
-          </div>
-        </section>
-        <section className="mt-8">
-          <h2 className="mb-3 text-sm font-semibold">Actividad reciente de usuarios</h2>
-          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-            <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-zinc-200 bg-zinc-50 text-zinc-500"><tr><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Evento</th><th className="px-4 py-3">Usuario objetivo</th><th className="px-4 py-3">Actor</th></tr></thead>
-              <tbody>{events.map((event) => <tr key={event.id} className="border-b border-zinc-100"><td className="px-4 py-3 text-zinc-500">{new Date(event.created_at).toLocaleString()}</td><td className="px-4 py-3 font-medium">{event.event_type}</td><td className="px-4 py-3 font-mono text-zinc-500">{event.target_user_id}</td><td className="px-4 py-3 font-mono text-zinc-500">{event.actor_user_id}</td></tr>)}</tbody>
-            </table>
-          </div>
-        </section>
-      </main>
+    <div className="flex flex-col gap-6">
+      <header>
+        <p className="text-sm font-medium text-primary">Administración</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Usuarios</h1>
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Administra el acceso de administradores y vendedores.</p>
+      </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base"><UserPlus aria-hidden="true" className="size-4 text-primary" />Crear usuario</CardTitle>
+          <CardDescription>La contraseña temporal debe comunicarse de forma segura al usuario.</CardDescription>
+        </CardHeader>
+        <CreateUserForm />
+      </Card>
+
+      <Card>
+        <CardHeader className="border-b border-border"><CardTitle className="flex items-center gap-2 text-base"><Users aria-hidden="true" className="size-4 text-primary" />Usuarios registrados</CardTitle><CardDescription>{users.length} usuarios administrados por este sistema.</CardDescription></CardHeader>
+        {users.length === 0 ? <p className="px-6 py-10 text-center text-sm text-muted-foreground">Aún no hay usuarios administrados.</p> : <div className="overflow-x-auto"><table className="min-w-[980px] w-full text-left text-sm"><thead className="border-b border-border bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="px-4 py-3">Usuario</th><th className="px-4 py-3">Rol</th><th className="px-4 py-3">Estado</th><th className="px-4 py-3">Creado</th><th className="px-4 py-3">Acciones</th></tr></thead><tbody>{users.map((managedUser) => <UserRow key={managedUser.id} user={managedUser} />)}</tbody></table></div>}
+      </Card>
+
+      <Card>
+        <CardHeader className="border-b border-border"><CardTitle className="text-base">Actividad reciente de usuarios</CardTitle><CardDescription>Eventos de gestión registrados por el sistema.</CardDescription></CardHeader>
+        {events.length === 0 ? <p className="px-6 py-10 text-center text-sm text-muted-foreground">Aún no hay eventos de gestión.</p> : <div className="overflow-x-auto"><table className="min-w-[900px] w-full text-left text-xs"><thead className="border-b border-border bg-muted/60 text-muted-foreground"><tr><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Evento</th><th className="px-4 py-3">Usuario objetivo</th><th className="px-4 py-3">Actor</th></tr></thead><tbody>{events.map((event) => <tr key={event.id} className="border-b border-border last:border-0"><td className="px-4 py-3 text-muted-foreground">{new Date(event.created_at).toLocaleString()}</td><td className="px-4 py-3 font-medium text-foreground">{eventLabel(event.event_type)}</td><td className="px-4 py-3 font-mono text-muted-foreground">{event.target_user_id}</td><td className="px-4 py-3 font-mono text-muted-foreground">{event.actor_user_id}</td></tr>)}</tbody></table></div>}
+      </Card>
     </div>
   );
 }

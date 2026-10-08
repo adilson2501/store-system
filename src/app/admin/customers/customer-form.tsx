@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { createCustomer, updateCustomer, type CustomerFormState } from "@/features/customers/actions";
 
 type CustomerFormValues = {
@@ -38,18 +42,18 @@ export function CustomerForm({
   const errors = state.fieldErrors ?? {};
 
   return (
-    <form action={formAction} className="space-y-5">
-      {state.error ? <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{state.error}</p> : null}
+    <form action={formAction} className="space-y-6">
+      {state.error ? <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{state.error}</p> : null}
 
-      <div className="space-y-1">
-        <label htmlFor="name" className="block text-sm font-medium text-zinc-700">Nombre</label>
-        <input id="name" name="name" type="text" required maxLength={200} defaultValue={values.name} className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500" />
-        {errors.name ? <p className="text-sm text-red-600">{errors.name}</p> : null}
+      <div className="space-y-2">
+        <Label htmlFor="name">Nombre</Label>
+        <Input id="name" name="name" type="text" required maxLength={200} defaultValue={values.name} />
+        {errors.name ? <p className="text-sm text-destructive" role="alert">{errors.name}</p> : null}
       </div>
 
-      <div className="space-y-1">
-        <label htmlFor="phone" className="block text-sm font-medium text-zinc-700">Teléfono <span className="font-normal text-zinc-400">(opcional)</span></label>
-        <input
+      <div className="space-y-2">
+        <Label htmlFor="phone">Teléfono <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+        <Input
           id="phone"
           name="phone"
           type="tel"
@@ -61,31 +65,30 @@ export function CustomerForm({
             const digits = event.target.value.replace(/\D/g, "").slice(0, 9);
             if (event.target.value !== digits) event.target.value = digits;
           }}
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
         />
-        {errors.phone ? <p className="text-sm text-red-600">{errors.phone}</p> : null}
+        {errors.phone ? <p className="text-sm text-destructive" role="alert">{errors.phone}</p> : null}
       </div>
 
-      <div className="space-y-1">
-        <label htmlFor="notes" className="block text-sm font-medium text-zinc-700">Notas <span className="font-normal text-zinc-400">(solo administración)</span></label>
-        <textarea id="notes" name="notes" maxLength={1000} defaultValue={values.notes} rows={3} className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500" />
-        {errors.notes ? <p className="text-sm text-red-600">{errors.notes}</p> : null}
+      <div className="space-y-2">
+        <Label htmlFor="notes">Notas <span className="font-normal text-muted-foreground">(solo administración)</span></Label>
+        <textarea id="notes" name="notes" maxLength={1000} defaultValue={values.notes} rows={3} className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
+        {errors.notes ? <p className="text-sm text-destructive" role="alert">{errors.notes}</p> : null}
       </div>
 
-      <div className="space-y-1">
-        <label htmlFor="credit_limit" className="block text-sm font-medium text-zinc-700">Límite de crédito (S/.)</label>
-        <input id="credit_limit" name="credit_limit" type="text" inputMode="decimal" required defaultValue={values.credit_limit} placeholder="0.00" className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500" />
-        {errors.credit_limit ? <p className="text-sm text-red-600">{errors.credit_limit}</p> : null}
+      <div className="space-y-2">
+        <Label htmlFor="credit_limit">Límite de crédito (S/.)</Label>
+        <Input id="credit_limit" name="credit_limit" type="text" inputMode="decimal" required defaultValue={values.credit_limit} placeholder="0.00" />
+        {errors.credit_limit ? <p className="text-sm text-destructive" role="alert">{errors.credit_limit}</p> : null}
       </div>
 
-      <div className="space-y-3 text-sm text-zinc-800">
-        <label className="flex items-center gap-2"><input type="checkbox" name="credit_enabled" defaultChecked={values.credit_enabled} className="h-4 w-4 rounded border-zinc-300" /> Crédito habilitado</label>
-        <label className="flex items-center gap-2"><input type="checkbox" name="active" defaultChecked={values.active} className="h-4 w-4 rounded border-zinc-300" /> Cliente activo</label>
+      <div className="space-y-3 text-sm text-foreground">
+        <Label className="flex items-center gap-2"><input type="checkbox" name="credit_enabled" defaultChecked={values.credit_enabled} className="size-4 rounded border-input accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" /> Crédito habilitado</Label>
+        <Label className="flex items-center gap-2"><input type="checkbox" name="active" defaultChecked={values.active} className="size-4 rounded border-input accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" /> Cliente activo</Label>
       </div>
 
-      <div className="flex gap-3 pt-2">
-        <button type="submit" disabled={pending} className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50">{pending ? "Guardando…" : mode === "create" ? "Crear cliente" : "Guardar cambios"}</button>
-        <Link href="/admin/customers" className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">Cancelar</Link>
+      <div className="flex flex-wrap gap-3 pt-2">
+        <Button type="submit" disabled={pending}>{pending ? "Guardando…" : mode === "create" ? "Crear cliente" : "Guardar cambios"}</Button>
+        <Link href="/admin/customers" className={cn(buttonVariants({ variant: "outline" }))}>Cancelar</Link>
       </div>
     </form>
   );

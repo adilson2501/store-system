@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { AppHeader } from "@/components/app-header";
+import { ChevronLeft, ChevronRight, WalletCards } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { requireAdmin } from "@/features/auth/session";
 import { listCashSessions } from "@/features/cash-history/queries";
 import { formatCents, parseCents } from "@/features/pos/money";
@@ -24,70 +29,16 @@ function dateTime(value: string | null): string {
 }
 
 export default async function CashSessionsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
-  const user = await requireAdmin();
+  await requireAdmin();
   const params = await searchParams;
   const page = Number.parseInt(params.page ?? "1", 10);
   const history = await listCashSessions(Number.isNaN(page) ? 1 : page);
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader user={user} />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-lg font-semibold">Historial de cajas</h1>
-            <p className="mt-1 text-sm text-zinc-500">Consulta read-only de sesiones de caja.</p>
-          </div>
-          <Link href="/cash" className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100">
-            Caja operativa
-          </Link>
-        </div>
-
-        {history.rows.length === 0 ? (
-          <div className="rounded-lg border border-zinc-200 bg-white px-4 py-10 text-center text-zinc-500">No hay cajas registradas todavía.</div>
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-            <table className="min-w-[1100px] w-full text-left text-sm">
-              <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-500">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Operador</th>
-                  <th className="px-4 py-3 font-medium">Apertura</th>
-                  <th className="px-4 py-3 font-medium">Cierre</th>
-                  <th className="px-4 py-3 font-medium">Fondo inicial</th>
-                  <th className="px-4 py-3 font-medium">Efectivo esperado</th>
-                  <th className="px-4 py-3 font-medium">Efectivo contado</th>
-                  <th className="px-4 py-3 font-medium">Diferencia</th>
-                  <th className="px-4 py-3 font-medium">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.rows.map((row) => (
-                  <tr key={row.session_id} className="border-b border-zinc-100 last:border-0">
-                    <td className="px-4 py-3"><Link href={`/admin/cash-sessions/${row.session_id}`} className="font-semibold hover:underline">{row.operator_name}</Link></td>
-                    <td className="whitespace-nowrap px-4 py-3 text-zinc-600">{dateTime(row.opened_at)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-zinc-600">{dateTime(row.closed_at)}</td>
-                    <td className="px-4 py-3 tabular-nums">{money(row.opening_cash)}</td>
-                    <td className="px-4 py-3 tabular-nums">{row.status === "OPEN" ? "En curso" : money(row.expected_cash)}</td>
-                    <td className="px-4 py-3 tabular-nums">{money(row.counted_cash)}</td>
-                    <td className="px-4 py-3 font-semibold tabular-nums">{signedMoney(row.difference)}</td>
-                    <td className="px-4 py-3"><span className={row.status === "OPEN" ? "rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800" : "rounded-full bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-700"}>{row.status === "OPEN" ? "ABIERTA" : "CERRADA"}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {history.totalPages > 1 ? (
-          <nav className="mt-5 flex items-center justify-between text-sm" aria-label="Paginación de cajas">
-            <span className="text-zinc-500">Página {history.page} de {history.totalPages}</span>
-            <div className="flex gap-2">
-              {history.page > 1 ? <Link href={`/admin/cash-sessions?page=${history.page - 1}`} className="rounded-md border border-zinc-200 bg-white px-3 py-2 font-semibold hover:bg-zinc-50">Anterior</Link> : null}
-              {history.page < history.totalPages ? <Link href={`/admin/cash-sessions?page=${history.page + 1}`} className="rounded-md border border-zinc-200 bg-white px-3 py-2 font-semibold hover:bg-zinc-50">Siguiente</Link> : null}
-            </div>
-          </nav>
-        ) : null}
-      </main>
+    <div className="flex flex-col gap-6">
+      <header><p className="text-sm font-medium text-primary">Ventas y control</p><h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Historial de cajas</h1><p className="mt-2 text-sm text-muted-foreground">Consulta read-only de sesiones de caja.</p><p className="mt-2 text-sm text-muted-foreground">{history.total} sesiones registradas</p></header>
+      <Card><CardHeader className="border-b border-border"><CardTitle className="flex items-center gap-2 text-base"><WalletCards aria-hidden="true" className="size-4 text-primary" />Sesiones de caja</CardTitle><CardDescription>Los valores provienen del resumen administrativo autorizado.</CardDescription></CardHeader>{history.rows.length === 0 ? <p className="px-6 py-12 text-center text-sm text-muted-foreground">No hay cajas registradas todavía.</p> : <div className="overflow-x-auto"><Table className="min-w-[1150px]"><TableHeader className="bg-muted/60"><TableRow className="hover:bg-transparent"><TableHead className="pl-4">Operador</TableHead><TableHead>Apertura</TableHead><TableHead>Cierre</TableHead><TableHead className="text-right">Fondo inicial</TableHead><TableHead className="text-right">Efectivo esperado</TableHead><TableHead className="text-right">Efectivo contado</TableHead><TableHead className="text-right">Diferencia</TableHead><TableHead className="pr-4">Estado</TableHead></TableRow></TableHeader><TableBody>{history.rows.map((row) => <TableRow key={row.session_id}><TableCell className="pl-4"><Link href={`/admin/cash-sessions/${row.session_id}`} className="font-semibold text-foreground hover:text-primary hover:underline">{row.operator_name}</Link></TableCell><TableCell className="whitespace-nowrap text-muted-foreground">{dateTime(row.opened_at)}</TableCell><TableCell className="whitespace-nowrap text-muted-foreground">{dateTime(row.closed_at)}</TableCell><TableCell className="text-right tabular-nums">{money(row.opening_cash)}</TableCell><TableCell className="text-right tabular-nums">{row.status === "OPEN" ? "En curso" : money(row.expected_cash)}</TableCell><TableCell className="text-right tabular-nums">{money(row.counted_cash)}</TableCell><TableCell className={cn("text-right font-semibold tabular-nums", row.difference?.startsWith("-") ? "text-destructive" : "text-foreground")}>{signedMoney(row.difference)}</TableCell><TableCell className="pr-4"><Badge variant={row.status === "OPEN" ? "warning" : "secondary"}>{row.status === "OPEN" ? "Abierta" : "Cerrada"}</Badge></TableCell></TableRow>)}</TableBody></Table></div>}</Card>
+      {history.totalPages > 1 ? <nav className="flex flex-wrap items-center justify-between gap-3 text-sm" aria-label="Paginación de cajas"><span className="text-muted-foreground">Página {history.page} de {history.totalPages}</span><div className="flex gap-2">{history.page > 1 ? <Link href={`/admin/cash-sessions?page=${history.page - 1}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}><ChevronLeft aria-hidden="true" />Anterior</Link> : null}{history.page < history.totalPages ? <Link href={`/admin/cash-sessions?page=${history.page + 1}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Siguiente<ChevronRight aria-hidden="true" /></Link> : null}</div></nav> : null}
     </div>
   );
 }

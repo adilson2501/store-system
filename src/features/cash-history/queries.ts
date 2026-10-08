@@ -57,6 +57,7 @@ export async function listCashSessions(requestedPage = 1): Promise<CashHistoryPa
     .from("cash_sessions")
     .select("id, operator_id, status, opened_at, closed_at, opening_cash, expected_cash_at_close, counted_cash, difference", { count: "exact" })
     .order("opened_at", { ascending: false })
+    .order("id", { ascending: false })
     .range(from, to);
   if (error) throw new Error(`No se pudieron cargar las cajas: ${error.message}`);
 

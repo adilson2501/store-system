@@ -49,6 +49,10 @@ function validateCustomerForm(values: ReturnType<typeof readCustomerForm>) {
   return { fieldErrors, name, phone, notes, limit };
 }
 
+function customerSaveError(): string {
+  return "No se pudo guardar el cliente. Intenta nuevamente.";
+}
+
 export async function createCustomer(
   _prevState: CustomerFormState,
   formData: FormData,
@@ -72,7 +76,7 @@ export async function createCustomer(
     })
     .select("id")
     .single();
-  if (error) return { error: error.message, values };
+  if (error) return { error: customerSaveError(), values };
   revalidatePath("/admin/customers");
   redirect(`/admin/customers/${data.id}`);
 }
@@ -100,7 +104,7 @@ export async function updateCustomer(
       active: values.active,
     })
     .eq("id", customerId);
-  if (error) return { error: error.message, values };
+  if (error) return { error: customerSaveError(), values };
   revalidatePath("/admin/customers");
   revalidatePath(`/admin/customers/${customerId}`);
   return { values };
@@ -128,7 +132,7 @@ function paymentError(raw: string) {
   if (message.includes("Payment idempotency conflict")) return "La clave de pago ya fue usada con otros datos.";
   if (message.includes("Customer is inactive")) return "El cliente está inactivo.";
   if (message.includes("Open cash session is required")) return "Debes abrir caja antes de registrar un pago.";
-  return message;
+  return "No se pudo registrar el pago. Intenta nuevamente.";
 }
 
 export async function registerCustomerPayment(

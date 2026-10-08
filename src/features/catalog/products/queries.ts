@@ -47,7 +47,7 @@ async function attachStock(
     .in("product_id", ids);
 
   if (error) {
-    throw new Error(`Failed to load stock: ${error.message}`);
+    throw new Error("No se pudo cargar el stock.");
   }
 
   for (const row of data ?? []) {
@@ -85,7 +85,8 @@ export async function listCategories(options?: {
   let query = supabase
     .from("categories")
     .select("id, name, is_active, created_at, updated_at")
-    .order("name", { ascending: true });
+    .order("name", { ascending: true })
+    .order("id", { ascending: true });
 
   if (options?.activeOnly) {
     query = query.eq("is_active", true);
@@ -94,7 +95,7 @@ export async function listCategories(options?: {
   const { data, error } = await query;
 
   if (error) {
-    throw new Error(`Failed to load categories: ${error.message}`);
+    throw new Error("No se pudieron cargar las categorías.");
   }
 
   return (data ?? []) as Category[];
@@ -108,7 +109,8 @@ export async function listProducts(search?: string): Promise<Product[]> {
     .select(
       "id, name, barcode, category_id, unit_type, purchase_cost, selling_price, is_active, created_at, updated_at, category:categories(name)",
     )
-    .order("name", { ascending: true });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
 
   const term = search?.trim();
   if (term) {
@@ -119,7 +121,7 @@ export async function listProducts(search?: string): Promise<Product[]> {
   const { data, error } = await query;
 
   if (error) {
-    throw new Error(`Failed to load products: ${error.message}`);
+    throw new Error("No se pudieron cargar los productos.");
   }
 
   const rows = (data ?? []) as ProductRow[];
@@ -140,7 +142,7 @@ export async function getProduct(id: string): Promise<Product | null> {
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Failed to load product: ${error.message}`);
+    throw new Error("No se pudo cargar el producto.");
   }
   if (!data) {
     return null;
@@ -156,9 +158,10 @@ export async function listProductInventoryMovements(productId: string): Promise<
     .from("inventory_movements")
     .select("id, movement_type, quantity, loss_reason, note, created_at, created_by")
     .eq("product_id", productId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
 
-  if (error) throw new Error(`Failed to load inventory history: ${error.message}`);
+  if (error) throw new Error("No se pudo cargar el historial de inventario.");
 
   const rows = (data ?? []) as Omit<InventoryMovement, "actor_name">[];
   const actorIds = [...new Set(rows.map((row) => row.created_by).filter((id): id is string => Boolean(id)))];
@@ -169,7 +172,7 @@ export async function listProductInventoryMovements(productId: string): Promise<
       .from("profiles")
       .select("id, display_name")
       .in("id", actorIds);
-    if (profileError) throw new Error(`Failed to load inventory actors: ${profileError.message}`);
+    if (profileError) throw new Error("No se pudieron cargar los responsables del inventario.");
     for (const profile of profiles ?? []) {
       actorNames.set(profile.id, profile.display_name ?? profile.id);
     }

@@ -271,18 +271,147 @@ describe("local confirm_sale economic invariants", () => {
     expect((await summary()).expected_cash).toBe(before.expected_cash);
   });
 
-  it("applies insufficient stock atomically", async () => {
-    fixture = await createSaleFixture({ unitStock: "1.000" });
-    const input = cashInput(crypto.randomUUID(), { items: [{ product_id: fixture.unitProductId, quantity: "2" }] });
+  it("reports authoritative UNIT stock and rejects atomically", async () => {
+    fixture = await createSaleFixture({ unitStock: "2.000" });
+    const input = cashInput(crypto.randomUUID(), { items: [{ product_id: fixture.unitProductId, quantity: "3" }] });
     const before = await summary();
 
     const { data, error } = await confirm(input);
     expect(data).toBeNull();
     expect(error?.message).toContain("Insufficient stock for product");
+    expect(JSON.parse(error?.details ?? "{}")).toMatchObject({
+      code: "INSUFFICIENT_STOCK",
+      version: 2,
+      items: [{
+        productId: fixture.unitProductId,
+        productName: "A1.4b UNIT",
+        unitType: "UNIT",
+        requestedQuantity: "3.000",
+        availableStock: "2.000",
+      }],
+    });
     expect(await countRows("sales", "client_key", input.clientKey)).toBe(0);
+    expect(await countRows("sale_items", "product_id", fixture.unitProductId)).toBe(0);
     expect(await countRows("customer_credit_ledger", "created_by", fixture.sellerId)).toBe(0);
-    expect(await stock(fixture.unitProductId)).toBe(1);
+    expect(await stock(fixture.unitProductId)).toBe(2);
     expect(await countRows("inventory_movements", "product_id", fixture.unitProductId)).toBe(1);
+    expect((await summary()).cash_sales).toBe(before.cash_sales);
+    expect((await summary()).expected_cash).toBe(before.expected_cash);
+  });
+
+  it("reports zero UNIT stock without changing inventory", async () => {
+    fixture = await createSaleFixture({ unitStock: "0.000" });
+    const input = cashInput(crypto.randomUUID(), { items: [{ product_id: fixture.unitProductId, quantity: "1" }] });
+
+    const { data, error } = await confirm(input);
+    expect(data).toBeNull();
+    expect(JSON.parse(error?.details ?? "{}")).toMatchObject({
+      code: "INSUFFICIENT_STOCK",
+      version: 2,
+      items: [{ unitType: "UNIT", requestedQuantity: "1.000", availableStock: "0.000" }],
+    });
+    expect(await countRows("sales", "client_key", input.clientKey)).toBe(0);
+    expect(await stock(fixture.unitProductId)).toBe(0);
+    expect(await countRows("inventory_movements", "product_id", fixture.unitProductId)).toBe(0);
+  });
+
+  it("reports authoritative WEIGHT stock and rejects atomically", async () => {
+    fixture = await createSaleFixture({ weight: true, weightStock: "0.750" });
+    const input = cashInput(crypto.randomUUID(), {
+      items: [{ product_id: fixture.weightProductId!, quantity: "0.800" }],
+    });
+    const before = await summary();
+
+    const { data, error } = await confirm(input);
+    expect(data).toBeNull();
+    expect(JSON.parse(error?.details ?? "{}")).toMatchObject({
+      code: "INSUFFICIENT_STOCK",
+      version: 2,
+      items: [{
+        productId: fixture.weightProductId,
+        productName: "A1.4b WEIGHT",
+        unitType: "WEIGHT",
+        requestedQuantity: "0.800",
+        availableStock: "0.750",
+      }],
+    });
+    expect(await countRows("sales", "client_key", input.clientKey)).toBe(0);
+    expect(await countRows("sale_items", "product_id", fixture.weightProductId!)).toBe(0);
+    expect(await stock(fixture.weightProductId!)).toBeCloseTo(0.75, 6);
+    expect(await countRows("inventory_movements", "product_id", fixture.weightProductId!)).toBe(1);
+    expect((await summary()).cash_sales).toBe(before.cash_sales);
+    expect((await summary()).expected_cash).toBe(before.expected_cash);
+  });
+
+  it("reports two UNIT shortages in one authoritative error", async () => {
+    fixture = await createSaleFixture({ secondProduct: true, unitStock: "6.000", secondProductStock: "1.000" });
+    const input = cashInput(crypto.randomUUID(), {
+      items: [
+        { product_id: fixture.unitProductId, quantity: "8" },
+        { product_id: fixture.secondProductId!, quantity: "3" },
+      ],
+    });
+    const before = await summary();
+
+    const { data, error } = await confirm(input);
+    expect(data).toBeNull();
+    const detail = JSON.parse(error?.details ?? "{}");
+    expect(detail.code).toBe("INSUFFICIENT_STOCK");
+    expect(detail.version).toBe(2);
+    expect(detail.items).toHaveLength(2);
+    expect(detail.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ productId: fixture.unitProductId, requestedQuantity: "8.000", availableStock: "6.000", unitType: "UNIT" }),
+      expect.objectContaining({ productId: fixture.secondProductId, requestedQuantity: "3.000", availableStock: "1.000", unitType: "UNIT" }),
+    ]));
+    expect(await countRows("sales", "client_key", input.clientKey)).toBe(0);
+    expect(await countRows("sale_items", "product_id", fixture.unitProductId)).toBe(0);
+    expect(await countRows("sale_items", "product_id", fixture.secondProductId!)).toBe(0);
+    expect(await stock(fixture.unitProductId)).toBe(6);
+    expect(await stock(fixture.secondProductId!)).toBe(1);
+    expect((await summary()).cash_sales).toBe(before.cash_sales);
+    expect((await summary()).expected_cash).toBe(before.expected_cash);
+  });
+
+  it("reports mixed UNIT and WEIGHT shortages in one error", async () => {
+    fixture = await createSaleFixture({ weight: true, unitStock: "2.000", weightStock: "0.750" });
+    const input = cashInput(crypto.randomUUID(), {
+      items: [
+        { product_id: fixture.unitProductId, quantity: "3" },
+        { product_id: fixture.weightProductId!, quantity: "1.000" },
+      ],
+    });
+
+    const { data, error } = await confirm(input);
+    expect(data).toBeNull();
+    const detail = JSON.parse(error?.details ?? "{}");
+    expect(detail.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ unitType: "UNIT", requestedQuantity: "3.000", availableStock: "2.000" }),
+      expect.objectContaining({ unitType: "WEIGHT", requestedQuantity: "1.000", availableStock: "0.750" }),
+    ]));
+    expect(await countRows("sales", "client_key", input.clientKey)).toBe(0);
+    expect(await stock(fixture.unitProductId)).toBe(2);
+    expect(await stock(fixture.weightProductId!)).toBeCloseTo(0.75, 6);
+  });
+
+  it("reports only the shortage while rejecting the entire mixed cart", async () => {
+    fixture = await createSaleFixture({ secondProduct: true, unitStock: "1.000", secondProductStock: "20.000" });
+    const input = cashInput(crypto.randomUUID(), {
+      items: [
+        { product_id: fixture.unitProductId, quantity: "2" },
+        { product_id: fixture.secondProductId!, quantity: "1" },
+      ],
+    });
+    const before = await summary();
+
+    const { data, error } = await confirm(input);
+    expect(data).toBeNull();
+    const detail = JSON.parse(error?.details ?? "{}");
+    expect(detail.items).toHaveLength(1);
+    expect(detail.items[0]).toMatchObject({ productId: fixture.unitProductId, requestedQuantity: "2.000", availableStock: "1.000" });
+    expect(await countRows("sales", "client_key", input.clientKey)).toBe(0);
+    expect(await countRows("sale_items", "product_id", fixture.secondProductId!)).toBe(0);
+    expect(await stock(fixture.unitProductId)).toBe(1);
+    expect(await stock(fixture.secondProductId!)).toBe(20);
     expect((await summary()).cash_sales).toBe(before.cash_sales);
     expect((await summary()).expected_cash).toBe(before.expected_cash);
   });

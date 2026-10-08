@@ -52,8 +52,8 @@ export function AppHeader({ user }: { user: SessionUser }) {
               </Link>
             </>
           ) : null}
-          <Link href="/account/password" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
-            Contraseña
+          <Link href="/account" className="text-xs font-medium text-zinc-600 hover:text-zinc-900">
+            Cuenta
           </Link>
           <form action={logout}>
             <button

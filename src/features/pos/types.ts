@@ -58,11 +58,36 @@ export type ConfirmedSale = {
 
 export type ConfirmSaleFailureKind = "DEFINITIVE" | "UNKNOWN";
 
+export type InsufficientStockItem = {
+  productId: string;
+  productName: string;
+  unitType: "UNIT" | "WEIGHT";
+  requestedQuantity?: string;
+  availableStock: string;
+};
+
+export type InsufficientStockDetails = {
+  code: "INSUFFICIENT_STOCK";
+  version: 2;
+  items: InsufficientStockItem[];
+};
+
+export type LegacyInsufficientStockDetails = {
+  code: "INSUFFICIENT_STOCK";
+  productId: string;
+  productName: string;
+  unitType: "UNIT" | "WEIGHT";
+  availableStock: string;
+};
+
+export type InsufficientStockMetadata = InsufficientStockDetails | LegacyInsufficientStockDetails;
+
 export type ConfirmSaleFailure = {
   ok: false;
   kind: ConfirmSaleFailureKind;
   code: string;
   error: string;
+  stock?: InsufficientStockMetadata;
 };
 
 export type ConfirmSaleResult =

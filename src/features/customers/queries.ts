@@ -35,8 +35,9 @@ async function loadLedger(supabase: Awaited<ReturnType<typeof createClient>>, cu
     .from("customer_credit_ledger")
     .select("id, customer_id, movement_type, amount, sale_id, payment_method, note, created_by, created_at")
     .in("customer_id", customerIds)
-    .order("created_at", { ascending: false });
-  if (error) throw new Error(`No se pudo cargar el historial de crédito: ${error.message}`);
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
+  if (error) throw new Error("No se pudo cargar el historial de crédito.");
   return (data ?? []) as LedgerRow[];
 }
 
@@ -46,14 +47,15 @@ export async function listCustomers(search?: string): Promise<Customer[]> {
   let query = supabase
     .from("customers")
     .select("id, name, phone, notes, credit_limit, credit_enabled, active, created_at, updated_at")
-    .order("name", { ascending: true });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
   const term = search?.trim();
   if (term) {
     const escaped = term.replace(/[%_,()]/g, " ");
     query = query.or(`name.ilike.%${escaped}%,phone.ilike.%${escaped}%`);
   }
   const { data, error } = await query;
-  if (error) throw new Error(`No se pudieron cargar los clientes: ${error.message}`);
+  if (error) throw new Error("No se pudieron cargar los clientes.");
   const rows = (data ?? []) as CustomerRow[];
   const ledger = await loadLedger(supabase, rows.map((row) => row.id));
   const balances = balanceMap(ledger);
@@ -68,7 +70,7 @@ export async function getCustomer(id: string): Promise<{ customer: Customer; led
     .select("id, name, phone, notes, credit_limit, credit_enabled, active, created_at, updated_at")
     .eq("id", id)
     .maybeSingle();
-  if (error) throw new Error(`No se pudo cargar el cliente: ${error.message}`);
+  if (error) throw new Error("No se pudo cargar el cliente.");
   if (!data) return null;
   const ledger = await loadLedger(supabase, [id]);
   const debt = balanceMap(ledger).get(id) ?? BigInt(0);

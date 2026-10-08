@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AppHeader } from "@/components/app-header";
+import { ArrowLeft, WalletCards } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { requireAdmin } from "@/features/auth/session";
 import { getCashSessionHistoryDetail } from "@/features/cash-history/queries";
 import { formatCents, parseCents } from "@/features/pos/money";
@@ -29,49 +33,17 @@ function DetailRow({ label, value, strong = false }: { label: string; value: str
 }
 
 export default async function CashSessionDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireAdmin();
+  await requireAdmin();
   const { id } = await params;
   const session = await getCashSessionHistoryDetail(id);
   if (!session) notFound();
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader user={user} />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div><h1 className="text-lg font-semibold">Detalle de caja</h1><p className="mt-1 text-sm text-zinc-500">Consulta administrativa read-only</p></div>
-          <Link href="/admin/cash-sessions" className="text-sm font-semibold text-zinc-600 hover:text-zinc-900">Volver al historial</Link>
-        </div>
-
-        <section className="rounded-lg border border-zinc-200 bg-white p-5 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div><p className="text-xs uppercase tracking-wide text-zinc-500">Estado</p><p className="mt-1 text-xl font-bold">{session.status === "OPEN" ? "ABIERTA" : "CERRADA"}</p></div>
-            <div className={session.status === "OPEN" ? "rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-800" : "rounded-full bg-zinc-100 px-3 py-1 text-sm font-semibold text-zinc-700"}>{session.status === "OPEN" ? "En curso" : "Finalizada"}</div>
-          </div>
-          <dl className="mt-5 grid gap-4 border-t border-zinc-200 pt-5 text-sm sm:grid-cols-2">
-            <div><dt className="text-zinc-500">Operador</dt><dd className="font-semibold">{session.operator_name}</dd></div>
-            <div><dt className="text-zinc-500">Hora de apertura</dt><dd className="font-semibold">{dateTime(session.opened_at)}</dd></div>
-            <div><dt className="text-zinc-500">Hora de cierre</dt><dd className="font-semibold">{dateTime(session.closed_at)}</dd></div>
-          </dl>
-        </section>
-
-        <section className="mt-5 rounded-lg border border-zinc-200 bg-white p-5 sm:p-6">
-          <h2 className="text-base font-semibold">Resumen de caja</h2>
-          <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-            <DetailRow label="Fondo inicial" value={money(session.opening_cash)} />
-            <DetailRow label="Ventas en efectivo" value={money(session.cash_sales)} />
-            <DetailRow label="Ventas Yape" value={money(session.yape_sales)} />
-            <DetailRow label="Ventas fiadas" value={money(session.credit_sales)} />
-            <DetailRow label="Cobros de deuda en efectivo" value={money(session.cash_debt_payments)} />
-            <DetailRow label="Cobros de deuda por Yape" value={money(session.yape_debt_payments)} />
-            <DetailRow label="Total vendido" value={money(session.total_sales)} strong />
-            <DetailRow label="Efectivo esperado" value={money(session.expected_cash)} strong />
-            <DetailRow label="Efectivo contado" value={money(session.counted_cash)} strong />
-            <DetailRow label="Diferencia" value={signedMoney(session.difference)} strong />
-          </dl>
-          {session.status === "OPEN" ? <p className="mt-5 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">La sesión sigue abierta. Los valores de cierre aún no están finalizados.</p> : null}
-        </section>
-      </main>
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+      <Link href="/admin/cash-sessions" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "w-fit -ml-3")}><ArrowLeft aria-hidden="true" />Volver al historial</Link>
+      <header><p className="text-sm font-medium text-primary">Ventas y control / Cajas</p><h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Detalle de caja</h1><p className="mt-2 text-sm text-muted-foreground">Consulta administrativa read-only de la sesión.</p></header>
+      <Card><CardHeader><div className="flex flex-wrap items-start justify-between gap-4"><div><CardTitle className="flex items-center gap-2 text-base"><WalletCards aria-hidden="true" className="size-4 text-primary" />Sesión de caja</CardTitle><CardDescription>{session.operator_name} · Apertura {dateTime(session.opened_at)}</CardDescription></div><Badge variant={session.status === "OPEN" ? "warning" : "secondary"}>{session.status === "OPEN" ? "Abierta" : "Cerrada"}</Badge></div></CardHeader><CardContent><dl className="grid gap-4 text-sm sm:grid-cols-2"><DetailRow label="Operador" value={session.operator_name} /><DetailRow label="Hora de apertura" value={dateTime(session.opened_at)} /><DetailRow label="Hora de cierre" value={dateTime(session.closed_at)} /></dl></CardContent></Card>
+      <Card><CardHeader><CardTitle className="text-base">Resumen de caja</CardTitle><CardDescription>Valores calculados por el resumen administrativo autorizado.</CardDescription></CardHeader><CardContent><dl className="grid gap-4 sm:grid-cols-2"><DetailRow label="Fondo inicial" value={money(session.opening_cash)} /><DetailRow label="Ventas en efectivo" value={money(session.cash_sales)} /><DetailRow label="Ventas Yape" value={money(session.yape_sales)} /><DetailRow label="Ventas fiadas" value={money(session.credit_sales)} /><DetailRow label="Cobros de deuda en efectivo" value={money(session.cash_debt_payments)} /><DetailRow label="Cobros de deuda por Yape" value={money(session.yape_debt_payments)} /><DetailRow label="Total vendido" value={money(session.total_sales)} strong /><DetailRow label="Efectivo esperado" value={money(session.expected_cash)} strong /><DetailRow label="Efectivo contado" value={money(session.counted_cash)} strong /><DetailRow label="Diferencia" value={signedMoney(session.difference)} strong /></dl>{session.status === "OPEN" ? <p className="mt-5 rounded-md bg-warning/15 px-3 py-2 text-sm text-warning-foreground">La sesión sigue abierta. Los valores de cierre aún no están finalizados.</p> : null}</CardContent></Card>
     </div>
   );
 }

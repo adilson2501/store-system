@@ -10,6 +10,7 @@ import {
   parseRole,
   validateDisplayName,
   validateEmail,
+  validateEmailChange,
   validatePassword,
   validatePasswordConfirmation,
 } from "@/features/users/validation";
@@ -194,6 +195,67 @@ export async function updateManagedUser(formData: FormData): Promise<UserActionR
 }
 
 export type PasswordFormState = { error?: string; success?: string };
+
+export type EmailFormState = { error?: string; success?: string };
+
+function emailChangeAuthError(error: unknown): string {
+  const authError = error as { name?: unknown; status?: unknown; code?: unknown; message?: unknown };
+  const name = typeof authError.name === "string" ? authError.name : "";
+  const status = typeof authError.status === "number" ? authError.status : undefined;
+  const code = typeof authError.code === "string" ? authError.code : "";
+  const message = typeof authError.message === "string" ? authError.message : "";
+  const searchable = `${name} ${code} ${message}`.toLowerCase();
+
+  console.error("[auth] self-service email change failed", { name, status, code, message });
+
+  if (searchable.includes("email_exists") || searchable.includes("already registered")) {
+    return "Ese correo ya está registrado.";
+  }
+  if (status === 429 || searchable.includes("rate limit") || searchable.includes("over_email_send_rate_limit")) {
+    return "Se alcanzó el límite temporal de solicitudes. Intenta nuevamente más tarde.";
+  }
+  if (searchable.includes("email_address_not_authorized") || searchable.includes("not authorized")) {
+    return "La configuración de Auth no permite solicitar este cambio de correo.";
+  }
+  if (searchable.includes("confirmation email") || searchable.includes("smtp") || searchable.includes("email provider")) {
+    return "No se pudo enviar el correo de confirmación. Revisa la configuración de correo de Auth.";
+  }
+  if (status === 401 || status === 403 || searchable.includes("auth session") || searchable.includes("jwt")) {
+    return "La sesión ya no es válida. Inicia sesión nuevamente.";
+  }
+  return "Auth no pudo aceptar el cambio de correo. Intenta nuevamente.";
+}
+
+export async function changeOwnEmail(
+  _previous: EmailFormState,
+  formData: FormData,
+): Promise<EmailFormState> {
+  const session = await requireUser();
+  const requestedEmail = normalizeEmail(String(formData.get("email") ?? ""));
+  const validationError = validateEmailChange(session.email, requestedEmail);
+  if (validationError) return { error: validationError };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.updateUser({ email: requestedEmail });
+  if (error) return { error: emailChangeAuthError(error) };
+
+  const { data: refreshedUser, error: refreshError } = await supabase.auth.getUser();
+  if (refreshError) {
+    const authError = refreshError as { name?: unknown; status?: unknown; code?: unknown; message?: unknown };
+    console.error("[auth] self-service email change refresh failed", {
+      name: typeof authError.name === "string" ? authError.name : "",
+      status: typeof authError.status === "number" ? authError.status : undefined,
+      code: typeof authError.code === "string" ? authError.code : "",
+      message: typeof authError.message === "string" ? authError.message : "",
+    });
+  }
+  const authoritativeEmail = refreshedUser.user?.email ?? data.user?.email ?? session.email;
+  if (normalizeEmail(authoritativeEmail) === requestedEmail) {
+    return { success: "Correo actualizado correctamente." };
+  }
+
+  return { success: "Solicitud de cambio enviada. Completa la confirmación si se solicita." };
+}
 
 export async function changeOwnPassword(
   _previous: PasswordFormState,

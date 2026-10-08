@@ -1,4 +1,4 @@
-import { AppHeader } from "@/components/app-header";
+import { OperationalHeader } from "@/app/pos/operational-header";
 import { requireUser } from "@/features/auth/session";
 import { getCurrentCashSessionState } from "@/features/cash/actions";
 import type { CashSessionState } from "@/features/cash/types";
@@ -16,15 +16,21 @@ export default async function CashPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900">
-      <AppHeader user={user} />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:py-8">
+    <main className="min-h-screen bg-background text-foreground">
+      <OperationalHeader
+        sellerName={user.displayName ?? user.email}
+        userRole={user.role}
+        cashSessionOpen={initialState.kind === "OPEN"}
+        currentArea="CASH"
+      />
+      <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-5 sm:py-8">
         <div className="mb-6">
-          <h1 className="text-xl font-semibold">Caja</h1>
-          <p className="mt-1 text-sm text-zinc-500">Apertura y cierre de la caja del día</p>
+          <p className="text-sm font-semibold text-primary">Ventas y control</p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight">Caja</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Apertura, efectivo disponible y cierre del turno</p>
         </div>
         <CashScreen initialState={initialState} initialError={initialError} />
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }

@@ -27,7 +27,7 @@ export async function searchPosCustomers(search: string): Promise<PosCustomer[]>
     p_search: term || null,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error("No se pudieron consultar los clientes.");
   return ((data ?? []) as PosCustomerRow[]).map(normalizeCustomer);
 }
 
@@ -37,7 +37,7 @@ export async function getPosCustomer(customerId: string): Promise<PosCustomer> {
     p_customer_id: customerId,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error("No se pudo cargar el cliente.");
   const row = (data ?? [])[0] as PosCustomerRow | undefined;
   if (!row) throw new Error("Customer not found");
   return normalizeCustomer(row);

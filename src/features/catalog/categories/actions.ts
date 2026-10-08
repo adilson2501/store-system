@@ -15,6 +15,10 @@ function normalizeName(raw: unknown): string {
     .replace(/\s+/g, " ");
 }
 
+function categorySaveError(): string {
+  return "No se pudo guardar la categoría. Intenta nuevamente.";
+}
+
 export async function createCategory(
   _prevState: CategoryFormState,
   formData: FormData,
@@ -36,7 +40,7 @@ export async function createCategory(
     if (error.code === "23505") {
       return { error: "Ya existe una categoría con ese nombre." };
     }
-    return { error: error.message };
+    return { error: categorySaveError() };
   }
 
   revalidatePath("/admin/categories");
@@ -70,7 +74,7 @@ export async function updateCategory(
     if (error.code === "23505") {
       return { error: "Ya existe una categoría con ese nombre." };
     }
-    return { error: error.message };
+    return { error: categorySaveError() };
   }
 
   revalidatePath("/admin/categories");

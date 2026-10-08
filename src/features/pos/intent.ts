@@ -1,6 +1,6 @@
 import type { UnitType } from "@/features/catalog/products/types";
 import { parseCents, parseThousandths } from "@/features/pos/money";
-import type { PaymentMethod } from "@/features/pos/types";
+import type { InsufficientStockMetadata, PaymentMethod } from "@/features/pos/types";
 
 export type SaleIntentState =
   | "DRAFT"
@@ -16,6 +16,7 @@ export type SaleIntentError = {
   kind: SaleIntentErrorKind;
   code: string;
   message: string;
+  stock?: InsufficientStockMetadata;
   at: string;
 };
 
