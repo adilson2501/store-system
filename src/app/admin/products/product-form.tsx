@@ -165,12 +165,14 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
           <input
             id="purchase_cost"
             name="purchase_cost"
-            type="text"
+            type="number"
             inputMode="decimal"
+            min="0"
+            step="0.01"
             required
             defaultValue={values.purchase_cost}
             placeholder="0.00"
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
+            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-base text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
           />
           {errors.purchase_cost ? (
             <p className="text-sm text-red-600">{errors.purchase_cost}</p>
@@ -187,12 +189,14 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
           <input
             id="selling_price"
             name="selling_price"
-            type="text"
+            type="number"
             inputMode="decimal"
+            min="0"
+            step="0.01"
             required
             defaultValue={values.selling_price}
             placeholder="0.00"
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
+            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-base text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
           />
           {errors.selling_price ? (
             <p className="text-sm text-red-600">{errors.selling_price}</p>
@@ -214,12 +218,14 @@ export function ProductForm({ mode, categories, productId, defaultValues }: Prop
           <input
             id="initial_stock"
             name="initial_stock"
-            type="text"
-            inputMode="decimal"
+            type="number"
+            inputMode={unitType === "WEIGHT" ? "decimal" : "numeric"}
+            min="0"
+            step={unitType === "WEIGHT" ? "0.001" : "1"}
             required
             defaultValue={values.initial_stock}
             placeholder={unitType === "WEIGHT" ? "0.000" : "0"}
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
+            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-base text-zinc-900 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
           />
           <p className="text-xs text-zinc-500">
             Se registra como un movimiento de entrada de inventario. Usa 0 si aún no hay stock.

@@ -211,6 +211,8 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
   const [cashSessionId, setCashSessionId] = useState<string | null>(initialCashSessionId);
   const [isPending, startTransition] = useTransition();
   const productInputRef = useRef<HTMLInputElement>(null);
+  const scannerFocusPendingRef = useRef(false);
+  const [scannerFocusRequest, setScannerFocusRequest] = useState(0);
   const tabIdRef = useRef(crypto.randomUUID());
   const autosaveTimerRef = useRef<number | null>(null);
   const autosaveGenerationRef = useRef(0);
@@ -412,8 +414,21 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
   }, [userId, hydrating, localBusy, draftIntentKey, cart, paymentMethod, amountReceived, selectedCustomerDisplay, cashSessionId]);
 
   useEffect(() => {
-    if (cashSessionOpen) productInputRef.current?.focus();
+    if (cashSessionOpen) requestScannerFocus();
   }, [cashSessionOpen]);
+
+  useEffect(() => {
+    if (!scannerFocusPendingRef.current || hydrating || !cashSessionOpen || localBusy || isPending) return;
+
+    const input = productInputRef.current;
+    if (!input || input.disabled) return;
+
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLInputElement && activeElement !== input) return;
+
+    input.focus();
+    scannerFocusPendingRef.current = false;
+  }, [cashSessionOpen, hydrating, isPending, localBusy, scannerFocusRequest]);
 
   useEffect(() => {
     let cancelled = false;
@@ -488,10 +503,15 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
     setCustomerOpen(false);
   }
 
+  function requestScannerFocus() {
+    scannerFocusPendingRef.current = true;
+    setScannerFocusRequest((current) => current + 1);
+  }
+
   function keepScannerReady() {
     setQuery("");
     setResults([]);
-    window.setTimeout(() => productInputRef.current?.focus(), 0);
+    requestScannerFocus();
   }
 
   async function correctFailedIntent() {
@@ -801,7 +821,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
             console.error(error);
           }
         }
-        productInputRef.current?.focus();
+        requestScannerFocus();
         setLocalBusy(false);
         return;
       }
@@ -832,10 +852,8 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
         setPaymentMethod("CASH");
         resetCustomer();
         setMessage("");
-        window.setTimeout(() => {
-          setSuccess(null);
-          productInputRef.current?.focus();
-        }, 1200);
+        window.setTimeout(() => setSuccess(null), 1200);
+        requestScannerFocus();
         setLocalBusy(false);
       }
     });
