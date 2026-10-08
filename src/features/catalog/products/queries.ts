@@ -3,6 +3,18 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { Category } from "@/features/catalog/categories/types";
 import type { Product } from "@/features/catalog/products/types";
+import type { InventoryMovementType } from "@/features/catalog/products/inventory-labels";
+
+export type InventoryMovement = {
+  id: string;
+  movement_type: InventoryMovementType;
+  quantity: string;
+  loss_reason: string | null;
+  note: string | null;
+  created_at: string;
+  created_by: string | null;
+  actor_name: string | null;
+};
 
 type ProductRow = {
   id: string;
@@ -35,7 +47,7 @@ async function attachStock(
     .in("product_id", ids);
 
   if (error) {
-    throw new Error(`Failed to load stock: ${error.message}`);
+    throw new Error("No se pudo cargar el stock.");
   }
 
   for (const row of data ?? []) {
@@ -73,7 +85,8 @@ export async function listCategories(options?: {
   let query = supabase
     .from("categories")
     .select("id, name, is_active, created_at, updated_at")
-    .order("name", { ascending: true });
+    .order("name", { ascending: true })
+    .order("id", { ascending: true });
 
   if (options?.activeOnly) {
     query = query.eq("is_active", true);
@@ -82,7 +95,7 @@ export async function listCategories(options?: {
   const { data, error } = await query;
 
   if (error) {
-    throw new Error(`Failed to load categories: ${error.message}`);
+    throw new Error("No se pudieron cargar las categorías.");
   }
 
   return (data ?? []) as Category[];
@@ -96,7 +109,8 @@ export async function listProducts(search?: string): Promise<Product[]> {
     .select(
       "id, name, barcode, category_id, unit_type, purchase_cost, selling_price, is_active, created_at, updated_at, category:categories(name)",
     )
-    .order("name", { ascending: true });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
 
   const term = search?.trim();
   if (term) {
@@ -107,7 +121,7 @@ export async function listProducts(search?: string): Promise<Product[]> {
   const { data, error } = await query;
 
   if (error) {
-    throw new Error(`Failed to load products: ${error.message}`);
+    throw new Error("No se pudieron cargar los productos.");
   }
 
   const rows = (data ?? []) as ProductRow[];
@@ -128,7 +142,7 @@ export async function getProduct(id: string): Promise<Product | null> {
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Failed to load product: ${error.message}`);
+    throw new Error("No se pudo cargar el producto.");
   }
   if (!data) {
     return null;
@@ -136,4 +150,36 @@ export async function getProduct(id: string): Promise<Product | null> {
 
   const stockMap = await attachStock(supabase, [data as ProductRow]);
   return toProduct(data as ProductRow, stockMap);
+}
+
+export async function listProductInventoryMovements(productId: string): Promise<InventoryMovement[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("inventory_movements")
+    .select("id, movement_type, quantity, loss_reason, note, created_at, created_by")
+    .eq("product_id", productId)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
+
+  if (error) throw new Error("No se pudo cargar el historial de inventario.");
+
+  const rows = (data ?? []) as Omit<InventoryMovement, "actor_name">[];
+  const actorIds = [...new Set(rows.map((row) => row.created_by).filter((id): id is string => Boolean(id)))];
+  const actorNames = new Map<string, string>();
+
+  if (actorIds.length > 0) {
+    const { data: profiles, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, display_name")
+      .in("id", actorIds);
+    if (profileError) throw new Error("No se pudieron cargar los responsables del inventario.");
+    for (const profile of profiles ?? []) {
+      actorNames.set(profile.id, profile.display_name ?? profile.id);
+    }
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    actor_name: row.created_by ? actorNames.get(row.created_by) ?? row.created_by : null,
+  }));
 }

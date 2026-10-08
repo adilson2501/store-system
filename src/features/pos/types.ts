@@ -1,6 +1,17 @@
 import type { UnitType } from "@/features/catalog/products/types";
 
-export type PaymentMethod = "CASH" | "YAPE";
+export type PaymentMethod = "CASH" | "YAPE" | "CREDIT";
+
+export type PosCustomer = {
+  id: string;
+  name: string;
+  phone: string | null;
+  credit_limit: string;
+  current_debt: string;
+  available_credit: string;
+  active: boolean;
+  credit_enabled: boolean;
+};
 
 export type PosProduct = {
   id: string;
@@ -18,9 +29,11 @@ export type CartLine = PosProduct & {
 
 export type ConfirmSaleInput = {
   client_key: string;
+  cash_session_id: string;
   payment_method: PaymentMethod;
-  items: Array<{ product_id: string; quantity: string }>;
+  items: ReadonlyArray<Readonly<{ product_id: string; quantity: string }>>;
   amount_received: string | null;
+  customer_id: string | null;
 };
 
 export type ConfirmedSale = {
@@ -31,6 +44,7 @@ export type ConfirmedSale = {
   total: string;
   amount_received: string | null;
   amount_change: string | null;
+  customer_id: string | null;
   created_at: string;
   items: Array<{
     product_id: string;
@@ -41,3 +55,41 @@ export type ConfirmedSale = {
     line_subtotal: string;
   }>;
 };
+
+export type ConfirmSaleFailureKind = "DEFINITIVE" | "UNKNOWN";
+
+export type InsufficientStockItem = {
+  productId: string;
+  productName: string;
+  unitType: "UNIT" | "WEIGHT";
+  requestedQuantity?: string;
+  availableStock: string;
+};
+
+export type InsufficientStockDetails = {
+  code: "INSUFFICIENT_STOCK";
+  version: 2;
+  items: InsufficientStockItem[];
+};
+
+export type LegacyInsufficientStockDetails = {
+  code: "INSUFFICIENT_STOCK";
+  productId: string;
+  productName: string;
+  unitType: "UNIT" | "WEIGHT";
+  availableStock: string;
+};
+
+export type InsufficientStockMetadata = InsufficientStockDetails | LegacyInsufficientStockDetails;
+
+export type ConfirmSaleFailure = {
+  ok: false;
+  kind: ConfirmSaleFailureKind;
+  code: string;
+  error: string;
+  stock?: InsufficientStockMetadata;
+};
+
+export type ConfirmSaleResult =
+  | { ok: true; sale: ConfirmedSale }
+  | ConfirmSaleFailure;

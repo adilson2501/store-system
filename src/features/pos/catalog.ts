@@ -23,7 +23,7 @@ export async function findByBarcode(barcode: string): Promise<PosProduct | null>
     p_search: null,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error("No se pudo consultar el catálogo.");
   const row = (data ?? [])[0] as PosProductRow | undefined;
   return row ? normalizeProduct(row) : null;
 }
@@ -38,6 +38,6 @@ export async function searchProducts(search: string): Promise<PosProduct[]> {
     p_search: term,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error("No se pudo consultar el catálogo.");
   return ((data ?? []) as PosProductRow[]).map(normalizeProduct);
 }

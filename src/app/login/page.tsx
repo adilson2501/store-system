@@ -5,8 +5,8 @@ import { LoginForm } from "@/app/login/login-form";
 export default async function LoginPage() {
   const session = await getSession();
 
-  if (session) {
-    redirect("/");
+  if (session?.isActive) {
+    redirect(session.role === "ADMIN" ? "/admin" : "/pos");
   }
 
   return (
