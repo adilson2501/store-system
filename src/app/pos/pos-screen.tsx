@@ -234,6 +234,31 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
     customerFresh && selectedCustomer !== null && selectedCustomer.active && selectedCustomer.credit_enabled;
   const creditOk =
     customerUsable && availableCreditCents !== null && totalCents <= availableCreditCents;
+  const cashValidationMessage = paymentMethod === "CASH" && amountReceived.trim()
+    ? receivedCents === null
+      ? "Ingresa un monto válido."
+      : receivedCents < totalCents
+        ? "El monto recibido es menor al total."
+        : ""
+    : "";
+  const creditValidationMessage = paymentMethod === "CREDIT"
+    ? selectedCustomerDisplay === null
+      ? "Selecciona un cliente para continuar."
+      : selectedCustomer === null
+        ? "Actualizando los datos del cliente…"
+        : !selectedCustomer.active
+          ? "El cliente está inactivo."
+          : !selectedCustomer.credit_enabled
+            ? "El crédito está deshabilitado para este cliente."
+            : availableCreditCents !== null && totalCents > availableCreditCents
+              ? "El crédito disponible no cubre este total."
+              : ""
+    : "";
+  const paymentActionLabel = paymentMethod === "CASH"
+    ? `Cobrar S/. ${formatCents(totalCents)}`
+    : paymentMethod === "YAPE"
+      ? `Confirmar Yape S/. ${formatCents(totalCents)}`
+      : `Registrar fiado S/. ${formatCents(totalCents)}`;
   const draftIntentKey = intent?.state === "DRAFT" ? intent.clientKey : null;
   const canConfirm =
     !hydrating && !tabBlocked && !localBusy && intent?.state === "DRAFT" &&
@@ -1162,15 +1187,25 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
           </section>
         </section>
 
-        <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:sticky md:top-4">
-          <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Total</p>
-          <p className="mt-1 text-5xl font-black tracking-tight">S/. {formatCents(totalCents)}</p>
+        <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:sticky md:top-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-500">Pago</p>
+            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
+              {paymentMethod === "CASH" ? "Efectivo" : paymentMethod === "YAPE" ? "Yape" : "Fiado"}
+            </span>
+          </div>
 
-          <div className="mt-6 grid grid-cols-3 gap-3">
+          <div className="mt-4 rounded-2xl bg-slate-950 px-4 py-4 text-white">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-300">Total</p>
+            <p className="mt-1 text-4xl font-black tracking-tight tabular-nums sm:text-5xl">S/. {formatCents(totalCents)}</p>
+          </div>
+
+          <div className="mt-5 grid grid-cols-3 gap-2">
             {(["CASH", "YAPE", "CREDIT"] as const).map((method) => (
               <button
                 key={method}
                 type="button"
+                aria-pressed={paymentMethod === method}
                 disabled={localBusy || isPending}
                 onClick={() => {
                   if (localBusy || isPending) return;
@@ -1182,7 +1217,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
                      resetCustomer(false);
                    }
                 }}
-                className={`min-h-14 rounded-xl text-lg font-bold ${paymentMethod === method ? "bg-blue-600 text-white shadow-sm" : "border border-slate-300 text-slate-700 hover:bg-slate-50"}`}
+                className={`min-h-14 rounded-xl px-2 text-sm font-black transition-colors sm:text-base ${paymentMethod === method ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-200" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
               >
                 {method === "CASH" ? "EFECTIVO" : method === "YAPE" ? "YAPE" : "FIADO"}
               </button>
@@ -1190,9 +1225,10 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
           </div>
 
            {paymentMethod === "CREDIT" ? (
-             <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3">
+             <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+               <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-800">Cliente</p>
                <label htmlFor="customer-search" className="block text-sm font-semibold text-amber-900">
-                 Buscar o seleccionar cliente
+                  Buscar cliente
                </label>
                <input
                   id="customer-search"
@@ -1260,10 +1296,6 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
                  </p>
                ) : null}
 
-               {selectedCustomerDisplay === null && !customerSearched ? (
-                 <p className="mt-2 text-sm text-amber-900">Selecciona un cliente para vender fiado.</p>
-               ) : null}
-
                {selectedCustomerDisplay !== null ? (
                  <div className="mt-3 rounded-xl border border-amber-300 bg-white p-3">
                     <div className="flex items-center justify-between gap-3">
@@ -1283,7 +1315,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
                     ) : <dl className="mt-2 space-y-1 text-sm">
                      <div className="flex items-center justify-between">
                        <dt className="text-slate-600">Nombre</dt>
-                       <dd className="max-w-[65%] truncate font-semibold">{selectedCustomer.name}</dd>
+                         <dd className="max-w-[65%] truncate text-right font-semibold">{selectedCustomer.name}</dd>
                      </div>
                     <div className="flex items-center justify-between">
                       <dt className="text-slate-600">Deuda actual</dt>
@@ -1298,32 +1330,17 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
                       <dd className="font-bold">{formatMoney(selectedCustomer.available_credit)}</dd>
                     </div>
                    </dl>}
-                   {selectedCustomer === null ? null : (
-                     <>
-                   {!selectedCustomer.active ? (
-                     <p className="mt-2 text-sm font-semibold text-red-700">El cliente está inactivo.</p>
-                   ) : null}
-                   {selectedCustomer.active && !selectedCustomer.credit_enabled ? (
-                    <p className="mt-2 text-sm font-semibold text-red-700">
-                       Crédito deshabilitado para este cliente.
-                     </p>
-                    ) : null}
-                    {customerUsable && availableCreditCents !== null && totalCents > availableCreditCents ? (
-                     <p className="mt-2 text-sm font-semibold text-red-700">
-                       Crédito insuficiente. Disponible: {formatMoney(selectedCustomer.available_credit)}
-                     </p>
-                    ) : null}
-                     </>
-                   )}
                 </div>
               ) : null}
-            </div>
-          ) : null}
+              {creditValidationMessage ? <p className="mt-3 text-sm font-semibold text-amber-950" role="status">{creditValidationMessage}</p> : null}
+             </div>
+           ) : null}
 
           {paymentMethod === "CASH" ? (
-            <div className="mt-5 space-y-3">
+            <div className="mt-5 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Recibido</p>
               <label htmlFor="amount-received" className="block text-sm font-semibold text-slate-700">
-                Monto recibido (opcional)
+                Monto recibido
               </label>
               <div className="relative">
                 <input
@@ -1344,14 +1361,18 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
                 </span>
               </div>
 
+              <p className="text-xs text-slate-500">Déjalo vacío para pago exacto.</p>
+              {cashValidationMessage ? <p className="text-sm font-semibold text-red-700" role="alert">{cashValidationMessage}</p> : null}
               <div className="flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3 text-emerald-900">
                 <span className="font-semibold">Vuelto</span>
                 <span className="text-xl font-black">{changeCents !== null && changeCents >= BigInt(0) ? `S/. ${formatCents(changeCents)}` : "—"}</span>
               </div>
-              <p className="text-xs text-slate-500">Déjalo vacío si paga exacto.</p>
             </div>
           ) : paymentMethod === "YAPE" ? (
-            <p className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">Verifica el pago en Yape y luego confirma.</p>
+            <div className="mt-5 rounded-xl border border-violet-200 bg-violet-50 px-4 py-4 text-sm text-violet-950">
+              <p className="font-black">Confirma el pago en Yape</p>
+              <p className="mt-1">Verifica que el pago esté realizado antes de confirmar.</p>
+            </div>
           ) : null}
 
           {intent?.state === "SUBMITTING" ? <p className="mt-5 rounded-xl bg-blue-50 px-4 py-3 text-center font-bold text-blue-900" role="status">Procesando venta...</p> : null}
@@ -1363,7 +1384,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
             disabled={!canConfirm || isPending}
             className="mt-5 min-h-16 w-full rounded-xl bg-emerald-600 px-4 text-xl font-black text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            {isPending || intent?.state === "SUBMITTING" ? "Procesando…" : "Confirmar venta"}
+            {isPending || intent?.state === "SUBMITTING" ? "Procesando…" : paymentActionLabel}
           </button>
         </aside>
       </div>

@@ -4,7 +4,7 @@ import { incrementIntegerQuantity } from "@/features/pos/money";
 export function addProduct(cart: CartLine[], product: PosProduct): CartLine[] {
   const existing = cart.find((line) => line.id === product.id);
   if (!existing) {
-    return [...cart, { ...product, quantity: product.unit_type === "UNIT" ? "1" : "" }];
+    return [{ ...product, quantity: product.unit_type === "UNIT" ? "1" : "" }, ...cart];
   }
 
   if (product.unit_type === "UNIT") {
