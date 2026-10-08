@@ -55,7 +55,8 @@ export async function listManagedUsers(): Promise<ManagedUser[]> {
     supabase
       .from("profiles")
       .select("id, role, display_name, is_active, created_at")
-      .order("created_at", { ascending: true }),
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false }),
   ]);
 
   if (profilesResult.error) {
@@ -80,7 +81,10 @@ export async function listManagedUsers(): Promise<ManagedUser[]> {
       } satisfies ManagedUser;
     })
     .filter((user): user is ManagedUser => user !== null)
-    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    .sort((left, right) => {
+      const createdAt = right.createdAt.localeCompare(left.createdAt);
+      return createdAt === 0 ? right.id.localeCompare(left.id) : createdAt;
+    });
 }
 
 export async function listUserManagementEvents(): Promise<UserManagementEvent[]> {
@@ -90,6 +94,7 @@ export async function listUserManagementEvents(): Promise<UserManagementEvent[]>
     .from("user_management_events")
     .select("id, target_user_id, actor_user_id, event_type, previous_role, new_role, previous_is_active, new_is_active, created_at")
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(100);
 
   if (error) throw new Error(`No se pudo cargar la auditoría de usuarios: ${error.message}`);

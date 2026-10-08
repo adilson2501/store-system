@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { cn } from "@/lib/utils";
 import { updateManagedUser, createManagedUser, type PasswordFormState } from "@/features/users/actions";
 import type { ManagedUser, UserFormState } from "@/features/users/types";
@@ -45,12 +46,12 @@ export function CreateUserForm() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Contraseña temporal</Label>
-        <Input id="password" name="password" type="password" required autoComplete="new-password" />
+        <PasswordInput id="password" name="password" required autoComplete="new-password" />
         {state.fieldErrors?.password ? <p className="text-sm text-destructive" role="alert">{state.fieldErrors.password}</p> : null}
       </div>
       <div className="space-y-2">
         <Label htmlFor="confirm_password">Confirmar contraseña</Label>
-        <Input id="confirm_password" name="confirm_password" type="password" required autoComplete="new-password" />
+        <PasswordInput id="confirm_password" name="confirm_password" required autoComplete="new-password" />
         {state.fieldErrors?.confirmPassword ? <p className="text-sm text-destructive" role="alert">{state.fieldErrors.confirmPassword}</p> : null}
       </div>
       <div className="sm:col-span-2">
@@ -120,11 +121,11 @@ export function PasswordForm({ action, initialState }: { action: (state: Passwor
     <form action={formAction} className="space-y-4 rounded-lg border border-zinc-200 bg-white p-5">
       <div className="space-y-1">
         <label htmlFor="password" className="block text-sm font-medium text-zinc-700">Nueva contraseña</label>
-        <input id="password" name="password" type="password" required autoComplete="new-password" className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" />
+        <PasswordInput id="password" name="password" required autoComplete="new-password" className="text-sm" />
       </div>
       <div className="space-y-1">
         <label htmlFor="confirm_password" className="block text-sm font-medium text-zinc-700">Confirmar contraseña</label>
-        <input id="confirm_password" name="confirm_password" type="password" required autoComplete="new-password" className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" />
+        <PasswordInput id="confirm_password" name="confirm_password" required autoComplete="new-password" className="text-sm" />
       </div>
       {state.error ? <p className="text-sm text-red-600" role="alert">{state.error}</p> : null}
       {state.success ? <p className="text-sm text-emerald-700" role="status">{state.success}</p> : null}

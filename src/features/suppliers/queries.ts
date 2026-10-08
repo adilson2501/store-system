@@ -25,8 +25,8 @@ export async function listSuppliers(requestedPage = 1, requestedSearch = ""): Pr
   let query = supabase
     .from("suppliers")
     .select("id, name, ruc, phone, notes, active, created_by, created_at, updated_at", { count: "exact" })
-    .order("name", { ascending: true })
-    .order("id", { ascending: true })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .range(from, to);
 
   if (search) {

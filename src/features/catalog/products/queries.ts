@@ -85,7 +85,8 @@ export async function listCategories(options?: {
   let query = supabase
     .from("categories")
     .select("id, name, is_active, created_at, updated_at")
-    .order("name", { ascending: true });
+    .order("name", { ascending: true })
+    .order("id", { ascending: true });
 
   if (options?.activeOnly) {
     query = query.eq("is_active", true);
@@ -108,7 +109,8 @@ export async function listProducts(search?: string): Promise<Product[]> {
     .select(
       "id, name, barcode, category_id, unit_type, purchase_cost, selling_price, is_active, created_at, updated_at, category:categories(name)",
     )
-    .order("name", { ascending: true });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
 
   const term = search?.trim();
   if (term) {
@@ -156,7 +158,8 @@ export async function listProductInventoryMovements(productId: string): Promise<
     .from("inventory_movements")
     .select("id, movement_type, quantity, loss_reason, note, created_at, created_by")
     .eq("product_id", productId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
 
   if (error) throw new Error(`Failed to load inventory history: ${error.message}`);
 

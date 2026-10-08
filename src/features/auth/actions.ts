@@ -30,7 +30,8 @@ export async function login(
     return { error: "Correo o contraseña incorrectos." };
   }
 
-  redirect("/");
+  const session = await getSession();
+  redirect(session?.isActive && session.role === "ADMIN" ? "/admin" : "/pos");
 }
 
 export async function logout(): Promise<void> {

@@ -24,7 +24,7 @@ export default async function AdminPage() {
   await requireAdmin();
   const supabase = await createClient();
   const [{ data: profiles, error }, normalized] = await Promise.all([
-    supabase.from("profiles").select("id, role, display_name, created_at").order("created_at", { ascending: true }),
+    supabase.from("profiles").select("id, role, display_name, created_at").order("created_at", { ascending: false }).order("id", { ascending: false }),
     Promise.resolve(normalizeReportPeriod("today", undefined, undefined)),
   ]);
   const todayReport = "error" in normalized ? null : await getSalesReport(normalized.start, normalized.end).catch(() => null);

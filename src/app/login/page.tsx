@@ -6,7 +6,7 @@ export default async function LoginPage() {
   const session = await getSession();
 
   if (session?.isActive) {
-    redirect("/");
+    redirect(session.role === "ADMIN" ? "/admin" : "/pos");
   }
 
   return (
