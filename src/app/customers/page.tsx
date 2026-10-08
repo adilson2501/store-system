@@ -19,6 +19,7 @@ export default async function CustomersPage() {
         sellerName={user.displayName ?? user.email}
         userRole={user.role}
         cashSessionOpen={cashSessionOpen === true}
+        currentArea="CUSTOMERS"
       />
       <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-5 sm:py-8">
         <div className="mb-6">

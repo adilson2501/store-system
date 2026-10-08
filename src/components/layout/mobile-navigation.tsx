@@ -1,11 +1,13 @@
 "use client";
 
 import { Menu } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { AdminNavLinks } from "@/components/layout/admin-nav-links";
+import { cn } from "@/lib/utils";
 
 export function MobileNavigation() {
   const [open, setOpen] = useState(false);
@@ -25,6 +27,9 @@ export function MobileNavigation() {
         <nav aria-label="Navegación administrativa móvil" className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-5">
           <AdminNavLinks onNavigate={() => setOpen(false)} />
         </nav>
+        <div className="shrink-0 border-t border-border px-3 py-4">
+          <Link href="/account" onClick={() => setOpen(false)} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "w-full justify-start")}>Cuenta</Link>
+        </div>
       </SheetContent>
     </Sheet>
   );

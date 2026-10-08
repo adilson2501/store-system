@@ -1078,7 +1078,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
   if (!cashSessionOpen) {
     return (
       <main className="min-h-screen bg-background text-foreground">
-        <OperationalHeader sellerName={sellerName} userRole={userRole} cashSessionOpen={cashSessionOpen} />
+        <OperationalHeader sellerName={sellerName} userRole={userRole} cashSessionOpen={cashSessionOpen} currentArea="POS" />
         <section className="mx-auto flex min-h-[calc(100vh-86px)] max-w-xl items-center px-4 py-8">
           <div className="w-full rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
             <p className="text-2xl font-black">Caja cerrada</p>
@@ -1094,7 +1094,7 @@ export function PosScreen({ userId, userRole, sellerName, initialCashSessionOpen
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <OperationalHeader sellerName={sellerName} userRole={userRole} cashSessionOpen={cashSessionOpen} />
+      <OperationalHeader sellerName={sellerName} userRole={userRole} cashSessionOpen={cashSessionOpen} currentArea="POS" />
 
       {recoveredDraft ? (
         <div className="mx-auto max-w-[1600px] px-3 pt-3 sm:px-5">

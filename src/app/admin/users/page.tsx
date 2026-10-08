@@ -5,6 +5,18 @@ import { requireAdmin } from "@/features/auth/session";
 import { listManagedUsers, listUserManagementEvents } from "@/features/users/queries";
 import { CreateUserForm, UserRow } from "@/app/admin/users/user-management";
 
+const eventLabels: Record<string, string> = {
+  USER_CREATED: "Usuario creado",
+  ROLE_CHANGED: "Rol actualizado",
+  USER_DEACTIVATED: "Usuario desactivado",
+  USER_REACTIVATED: "Usuario reactivado",
+  PASSWORD_RESET_REQUESTED: "Restablecimiento de contraseña solicitado",
+};
+
+function eventLabel(eventType: string): string {
+  return eventLabels[eventType] ?? "Actividad de usuario";
+}
+
 export default async function UsersPage() {
   await requireAdmin();
   const [users, events] = await Promise.all([listManagedUsers(), listUserManagementEvents()]);
@@ -32,7 +44,7 @@ export default async function UsersPage() {
 
       <Card>
         <CardHeader className="border-b border-border"><CardTitle className="text-base">Actividad reciente de usuarios</CardTitle><CardDescription>Eventos de gestión registrados por el sistema.</CardDescription></CardHeader>
-        {events.length === 0 ? <p className="px-6 py-10 text-center text-sm text-muted-foreground">Aún no hay eventos de gestión.</p> : <div className="overflow-x-auto"><table className="min-w-[900px] w-full text-left text-xs"><thead className="border-b border-border bg-muted/60 text-muted-foreground"><tr><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Evento</th><th className="px-4 py-3">Usuario objetivo</th><th className="px-4 py-3">Actor</th></tr></thead><tbody>{events.map((event) => <tr key={event.id} className="border-b border-border last:border-0"><td className="px-4 py-3 text-muted-foreground">{new Date(event.created_at).toLocaleString()}</td><td className="px-4 py-3 font-medium text-foreground">{event.event_type}</td><td className="px-4 py-3 font-mono text-muted-foreground">{event.target_user_id}</td><td className="px-4 py-3 font-mono text-muted-foreground">{event.actor_user_id}</td></tr>)}</tbody></table></div>}
+        {events.length === 0 ? <p className="px-6 py-10 text-center text-sm text-muted-foreground">Aún no hay eventos de gestión.</p> : <div className="overflow-x-auto"><table className="min-w-[900px] w-full text-left text-xs"><thead className="border-b border-border bg-muted/60 text-muted-foreground"><tr><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Evento</th><th className="px-4 py-3">Usuario objetivo</th><th className="px-4 py-3">Actor</th></tr></thead><tbody>{events.map((event) => <tr key={event.id} className="border-b border-border last:border-0"><td className="px-4 py-3 text-muted-foreground">{new Date(event.created_at).toLocaleString()}</td><td className="px-4 py-3 font-medium text-foreground">{eventLabel(event.event_type)}</td><td className="px-4 py-3 font-mono text-muted-foreground">{event.target_user_id}</td><td className="px-4 py-3 font-mono text-muted-foreground">{event.actor_user_id}</td></tr>)}</tbody></table></div>}
       </Card>
     </div>
   );

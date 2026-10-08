@@ -68,6 +68,7 @@ export function CreateUserForm() {
 export function UserRow({ user }: { user: ManagedUser }) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
+  const [confirmingDeactivation, setConfirmingDeactivation] = useState(false);
   const router = useRouter();
   const [displayName, setDisplayName] = useState(user.displayName === "—" ? "Usuario" : user.displayName);
   const [role, setRole] = useState(user.role);
@@ -82,7 +83,10 @@ export function UserRow({ user }: { user: ManagedUser }) {
     startTransition(async () => {
       const result = await updateManagedUser(formData);
       setMessage(result.error ?? result.success ?? "");
-      if (result.success) router.refresh();
+      if (result.success) {
+        setConfirmingDeactivation(false);
+        router.refresh();
+      }
     });
   }
 
@@ -103,12 +107,26 @@ export function UserRow({ user }: { user: ManagedUser }) {
       </td>
       <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(user.createdAt).toLocaleString()}</td>
       <td className="px-4 py-3">
-        <Button type="button" disabled={pending} onClick={() => submit()} variant="outline" size="sm" className="mr-2">
-          Guardar
-        </Button>
-        <Button type="button" disabled={pending} onClick={() => submit(!user.isActive)} variant="outline" size="sm">
-          {pending ? "Guardando…" : user.isActive ? "Desactivar" : "Reactivar"}
-        </Button>
+        {confirmingDeactivation ? (
+          <div role="dialog" aria-modal="true" aria-labelledby={`deactivate-user-${user.id}`} className="min-w-64 rounded-md border border-destructive/30 bg-card p-3 shadow-lg">
+            <p id={`deactivate-user-${user.id}`} className="font-semibold text-foreground">¿Desactivar usuario?</p>
+            <p className="mt-1 text-xs text-muted-foreground">{displayName} · {user.email}</p>
+            <p className="mt-2 text-sm text-muted-foreground">El usuario ya no podrá acceder al sistema.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" disabled={pending} onClick={() => setConfirmingDeactivation(false)} variant="ghost" size="sm">Cancelar</Button>
+              <Button type="button" disabled={pending} onClick={() => submit(false)} variant="destructive" size="sm">{pending ? "Desactivando…" : "Desactivar usuario"}</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Button type="button" disabled={pending} onClick={() => submit()} variant="outline" size="sm" className="mr-2">
+              Guardar
+            </Button>
+            <Button type="button" disabled={pending} onClick={() => user.isActive ? setConfirmingDeactivation(true) : submit(true)} variant="outline" size="sm">
+              {pending ? "Guardando…" : user.isActive ? "Desactivar" : "Reactivar"}
+            </Button>
+          </>
+        )}
         {message ? <p className={cn("mt-2 max-w-56 text-xs", message.includes("actualizado") || message.includes("reconciliada") ? "text-success" : "text-destructive")} role="status">{message}</p> : null}
       </td>
     </tr>

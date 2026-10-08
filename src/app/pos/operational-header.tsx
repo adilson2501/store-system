@@ -9,9 +9,18 @@ type Props = {
   sellerName: string;
   userRole: "ADMIN" | "SELLER";
   cashSessionOpen: boolean;
+  currentArea: "POS" | "CASH" | "CUSTOMERS";
 };
 
-export function OperationalHeader({ sellerName, userRole, cashSessionOpen }: Props) {
+const areaLabels = {
+  POS: "POS",
+  CASH: "Caja",
+  CUSTOMERS: "Clientes",
+} as const;
+
+export function OperationalHeader({ sellerName, userRole, cashSessionOpen, currentArea }: Props) {
+  const contextLabel = areaLabels[currentArea];
+
   return (
     <header className="border-b border-border bg-card">
       <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-5">
@@ -20,7 +29,7 @@ export function OperationalHeader({ sellerName, userRole, cashSessionOpen }: Pro
             <Store aria-hidden="true" className="size-5" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold tracking-tight text-foreground">Store System / POS</p>
+            <p className="truncate text-sm font-semibold tracking-tight text-foreground">Store System / {contextLabel}</p>
             <p className="truncate text-xs text-muted-foreground">{sellerName}</p>
           </div>
           <Badge variant={cashSessionOpen ? "success" : "warning"} className="hidden shrink-0 sm:inline-flex">
@@ -30,13 +39,13 @@ export function OperationalHeader({ sellerName, userRole, cashSessionOpen }: Pro
         </div>
 
         <nav className="flex flex-wrap items-center justify-end gap-1" aria-label="Navegacion operativa">
-          <Link href="/pos" aria-current="page" className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "min-h-10")}>
+          <Link href="/pos" aria-current={currentArea === "POS" ? "page" : undefined} className={cn(buttonVariants({ variant: currentArea === "POS" ? "secondary" : "ghost", size: "sm" }), "min-h-10")}>
             <ShoppingCart aria-hidden="true" />POS
           </Link>
-          <Link href="/cash" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "min-h-10")}>
+          <Link href="/cash" aria-current={currentArea === "CASH" ? "page" : undefined} className={cn(buttonVariants({ variant: currentArea === "CASH" ? "secondary" : "ghost", size: "sm" }), "min-h-10")}>
             <WalletCards aria-hidden="true" />Caja
           </Link>
-          <Link href="/customers" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "min-h-10")}>
+          <Link href="/customers" aria-current={currentArea === "CUSTOMERS" ? "page" : undefined} className={cn(buttonVariants({ variant: currentArea === "CUSTOMERS" ? "secondary" : "ghost", size: "sm" }), "min-h-10")}>
             <Users aria-hidden="true" />Clientes
           </Link>
           {userRole === "ADMIN" ? (

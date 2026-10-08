@@ -21,6 +21,7 @@ export default async function CashPage() {
         sellerName={user.displayName ?? user.email}
         userRole={user.role}
         cashSessionOpen={initialState.kind === "OPEN"}
+        currentArea="CASH"
       />
       <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-5 sm:py-8">
         <div className="mb-6">
